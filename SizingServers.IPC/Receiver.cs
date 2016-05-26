@@ -39,6 +39,10 @@ namespace SizingServers.IPC {
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </summary>
         public string Handle { get; private set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        public Settings Settings { get; private set; }
 
         /// <summary>
         /// Receives messages of a Sender having the same handle.
@@ -49,12 +53,15 @@ namespace SizingServers.IPC {
         /// <para>Make sure this is a unique value: use a GUID for instance:</para>
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
-        public Receiver(string handle) {
+        /// <param name="settings">
+        /// </param>
+        public Receiver(string handle, Settings settings = null) {
             Handle = handle;
+            Settings = settings;
 
             for (int i = 0; ; i++) //Try 3 times.
                 try {
-                    _receiver = new TcpListener(EndPointManager.RegisterReceiver(Handle));
+                    _receiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, Settings));
                     _receiver.Start(1);
                     break;
                 } catch {
@@ -93,19 +100,18 @@ namespace SizingServers.IPC {
                         Stream str = client.GetStream();
                         int longSize = Marshal.SizeOf<long>();
 
-                        long handleSize = GetLong(ReadBytes(str, client.ReceiveBufferSize, longSize));
-                        string handle = GetString(ReadBytes(str, client.ReceiveBufferSize, handleSize));
+                        long handleSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
+                        string handle = Shared.GetString(Shared.ReadBytes(str, client.ReceiveBufferSize, handleSize));
 
                         if (handle == Handle) {
-                            bool messageIsByteArray = GetBool(ReadBytes(str, client.ReceiveBufferSize, 1));
-                            long messageSize = GetLong(ReadBytes(str, client.ReceiveBufferSize, longSize));
+                            bool messageIsByteArray = Shared.GetBool(Shared.ReadBytes(str, client.ReceiveBufferSize, 1));
+                            long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
 
-                            byte[] messageBytes = ReadBytes(str, client.ReceiveBufferSize, messageSize);
+                            byte[] messageBytes = Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize);
 
-                            object message = messageIsByteArray ? messageBytes : GetObject(messageBytes);
+                            object message = messageIsByteArray ? messageBytes : Shared.GetObject(messageBytes, _bf);
 
-                            if (MessageReceived != null)
-                                MessageReceived(this, new MessageEventArgs() { Message = message });
+                            MessageReceived?.Invoke(this, new MessageEventArgs() { Message = message });
                         } else {
                             //Invalid sender. Close the connection.
                             client.Dispose();
@@ -115,42 +121,6 @@ namespace SizingServers.IPC {
                     //Not important. If it doesn't work the sender does not exist anymore or the sender will handle it.
                 }
             }, null);
-        }
-
-        private byte[] ReadBytes(Stream str, int bufferSize, long length) {
-            var bytes = new byte[length];
-
-            long totalRead = 0;
-            while (totalRead != length) {
-                int chunkLength = bufferSize;
-                if (chunkLength > length - totalRead) chunkLength = (int)(length - totalRead);
-
-                var chunk = new byte[chunkLength];
-                int chunkRead = str.Read(chunk, 0, chunkLength);
-                if (chunkRead <= 0) break;
-                chunk.CopyTo(bytes, totalRead);
-                totalRead += chunkRead;
-            }
-
-            return bytes;
-        }
-
-        private long GetLong(byte[] bytes) {
-            long l = Activator.CreateInstance<long>();
-            int size = Marshal.SizeOf(l);
-            IntPtr ptr = Marshal.AllocHGlobal(size);
-            Marshal.Copy(bytes, 0, ptr, size);
-            l = (long)Marshal.PtrToStructure(ptr, l.GetType());
-            Marshal.FreeHGlobal(ptr);
-            return l;
-        }
-        private string GetString(byte[] bytes) { return Encoding.UTF8.GetString(bytes); }
-        private bool GetBool(byte[] bytes) { return bytes[0] == 1; }
-        private object GetObject(byte[] bytes) {
-            object o;
-            using (var ms = new MemoryStream(bytes))
-                o = _bf.Deserialize(ms);
-            return o;
         }
 
         /// <summary>

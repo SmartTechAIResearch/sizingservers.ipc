@@ -2,11 +2,14 @@
 
 namespace SizingServers.IPC.TestReceiver {
     class Program {
-        static Receiver _receiver = new Receiver("SizingServers.IPC.Test");
+        static Receiver _receiver;
         static void Main(string[] args) {
             Console.Title = "SizingServers.Message.TestReceiver";
             Console.WriteLine("Messages are received from TestSender.");
 
+            var settings = new Settings() { EndPointManagerServiceIP = "127.0.0.1", EndpointManagerServicePort = 4444 };
+
+            _receiver = new Receiver("SizingServers.IPC.Test", settings);
             _receiver.MessageReceived += _receiver_MessageReceived;
 
             Console.WriteLine("Press any key to exit.");
