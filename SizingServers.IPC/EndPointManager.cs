@@ -9,9 +9,11 @@
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -38,23 +40,25 @@ namespace SizingServers.IPC {
         /// </param>
         /// <param name="settings"></param>
         /// <returns></returns>
-        public static IPEndPoint RegisterReceiver(string handle, Settings settings) {
+        public static IPEndPoint RegisterReceiver(string handle, EndPointManagerServiceConnection settings) {
             if (string.IsNullOrWhiteSpace(handle)) throw new ArgumentNullException(handle);
 
             IPEndPoint endPoint = null;
 
-            string hostName = Dns.GetHostEntry(IPAddress.Loopback).HostName.Trim();
+            IPAddress ipAddress = null;
+            foreach (var ipCandidate in Dns.GetHostEntry(IPAddress.Loopback).AddressList)
+                if (!ipCandidate.Equals(IPAddress.Loopback) && !ipCandidate.Equals(IPAddress.IPv6Loopback) &&
+                    (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6)) {
+                    ipAddress = ipCandidate;
+                    break;
+                }
 
-            if (_namedMutex.WaitOne()) {
-                var endPoints = CleanupEndPoints(Shared.GetRegisteredEndPoints(settings), settings);
-                if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(hostName, new HashSet<int>()));
+            var endPoints = CleanupEndPoints(GetRegisteredEndPoints(settings), settings);
+            if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(ipAddress.ToString(), new HashSet<int>()));
 
-                endPoint = new IPEndPoint(IPAddress.Any, GetAvailableTcpPort());
-                endPoints[handle].Value.Add(endPoint.Port);
-                Shared.SetRegisteredEndPoints(endPoints, settings);
-
-                _namedMutex.ReleaseMutex();
-            }
+            endPoint = new IPEndPoint(ipAddress, GetAvailableTcpPort());
+            endPoints[handle].Value.Add(endPoint.Port);
+            SetRegisteredEndPoints(endPoints, settings);
 
             return endPoint;
         }
@@ -70,36 +74,70 @@ namespace SizingServers.IPC {
         /// </param>
         /// <param name="settings"></param>
         /// <returns></returns>
-        public static List<IPEndPoint> GetReceiverEndPoints(string handle, Settings settings) {
+        public static List<IPEndPoint> GetReceiverEndPoints(string handle, EndPointManagerServiceConnection settings) {
             var endPoints = new List<IPEndPoint>();
 
-            if (_namedMutex.WaitOne()) {
-                var allEndPoints = CleanupEndPoints(Shared.GetRegisteredEndPoints(settings), settings);
+            var allEndPoints = CleanupEndPoints(GetRegisteredEndPoints(settings), settings);
 
-                if (allEndPoints.ContainsKey(handle)) {
-                    var kvpConnection = allEndPoints[handle];
-                    IPAddress ipAddress = null;
-                    foreach (var candidateIp in Dns.GetHostEntry(kvpConnection.Key).AddressList) {
-                        if (candidateIp.AddressFamily == AddressFamily.InterNetwork) {
-                            ipAddress = candidateIp;
-                            break;
-                        }
-                    }
-                    foreach (int port in kvpConnection.Value)
-                        endPoints.Add(new IPEndPoint(ipAddress, port)); 
-                }
-
-                _namedMutex.ReleaseMutex();
+            if (allEndPoints.ContainsKey(handle)) {
+                var kvpConnection = allEndPoints[handle];
+                var ipAddress = IPAddress.Parse(kvpConnection.Key);
+                foreach (int port in kvpConnection.Value)
+                    endPoints.Add(new IPEndPoint(ipAddress, port));
             }
 
             return endPoints;
         }
 
+        /// <summary>
+        /// </summary>
+        /// <param name="settings"></param>
+        /// <returns></returns>
+        private static Dictionary<string, KeyValuePair<string, HashSet<int>>> GetRegisteredEndPoints(EndPointManagerServiceConnection settings) {
+            var endPoints = new Dictionary<string, KeyValuePair<string, HashSet<int>>>();
+
+            string value = settings == null ? GetRegisteredEndPoints() : SendAndReceiveEPM(string.Empty, settings.GetClient());
+            if (value.Length != 0) {
+                string[] split = value.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string token in split) {
+                    string[] kvp = token.Split(new char[] { '*' }, StringSplitOptions.RemoveEmptyEntries);
+                    string handle = kvp[0];
+
+                    string[] kvpConnection = kvp[1].Split(new char[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+                    string hostname = kvpConnection[0];
+                    var ports = kvpConnection[1].Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    var hs = new HashSet<int>();
+                    foreach (string port in ports)
+                        hs.Add(int.Parse(port));
+
+                    endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(hostname, hs));
+                }
+            }
+
+            return endPoints;
+        }
 
         /// <summary>
         /// 
         /// </summary>
-        private static Dictionary<string, KeyValuePair<string, HashSet<int>>> CleanupEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, Settings settings) {
+        /// <returns></returns>
+        private static string GetRegisteredEndPoints() {
+            string endPoints = string.Empty;
+            if (_namedMutex.WaitOne()) {
+                RegistryKey subKey = Registry.CurrentUser.OpenSubKey("Software\\" + EndPointManager.KEY);
+                if (subKey != null)
+                    endPoints = subKey.GetValue("EndPoints") as string;
+
+                _namedMutex.ReleaseMutex();
+            }
+            return endPoints;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private static Dictionary<string, KeyValuePair<string, HashSet<int>>> CleanupEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, EndPointManagerServiceConnection settings) {
             HashSet<int> usedPorts = GetUsedTcpPorts();
 
             bool equals = true;
@@ -107,11 +145,13 @@ namespace SizingServers.IPC {
             foreach (string handle in endPoints.Keys) {
                 var kvpConnection = endPoints[handle];
 
+#warning Fix cleanup
+                //  if (Dns.GetHostEntry(IPAddress.Loopback).Equals(Dns.GetHostEntry(kvpConnection.Key)))
                 foreach (int port in kvpConnection.Value) {
                     if (usedPorts.Contains(port)) {
-                        if (!newEndPoints.ContainsKey(handle)) 
+                        if (!newEndPoints.ContainsKey(handle))
                             newEndPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(kvpConnection.Key, new HashSet<int>()));
-                        
+
                         newEndPoints[handle].Value.Add(port);
                     }
                     else {
@@ -121,9 +161,77 @@ namespace SizingServers.IPC {
             }
             if (!equals) {
                 endPoints = newEndPoints;
-                Shared.SetRegisteredEndPoints(endPoints, settings);
+                SetRegisteredEndPoints(endPoints, settings);
             }
             return endPoints;
+        }
+
+        /// <summary>
+        /// Set endpoints to the registery.
+        /// </summary>
+        /// <param name="endPoints"></param>
+        /// <param name="settings"></param>
+        private static void SetRegisteredEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, EndPointManagerServiceConnection settings) {
+            var sb = new StringBuilder();
+            foreach (string handle in endPoints.Keys) {
+                sb.Append(handle);
+                sb.Append('*');
+
+                var kvpConnection = endPoints[handle];
+                sb.Append(kvpConnection.Key);
+                sb.Append('-');
+
+                foreach (int port in kvpConnection.Value) {
+                    sb.Append(port);
+                    sb.Append('+');
+                }
+
+                sb.Append(',');
+            }
+
+            if (settings == null)
+                SetRegisteredEndPoints(sb.ToString());
+            else
+                SendAndReceiveEPM(sb.ToString(), settings.GetClient());
+        }
+        /// <summary>
+        /// Set endpoints to the registery.
+        /// </summary>
+        /// <param name="endPoints"></param>
+        private static void SetRegisteredEndPoints(string endPoints) {
+            if (_namedMutex.WaitOne()) {
+                RegistryKey subKey = Registry.CurrentUser.CreateSubKey("Software\\" + EndPointManager.KEY, RegistryKeyPermissionCheck.ReadWriteSubTree, RegistryOptions.Volatile);
+                subKey.SetValue("Endpoints", endPoints, RegistryValueKind.String);
+
+                _namedMutex.ReleaseMutex();
+            }
+        }
+
+        /// <summary>
+        /// Get the endpoints from the endpoint manager service.
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="message">Empty string to get the end points or the end point represeted as a string to set them.</param>
+        /// <returns></returns>
+        private static string SendAndReceiveEPM(string message, TcpClient client) {
+            //Serialize message
+            byte[] messageBytes = Shared.GetBytes(message);
+            byte[] messageSizeBytes = Shared.GetBytes(messageBytes.LongLength);
+            byte[] bytes = new byte[messageSizeBytes.LongLength + messageBytes.LongLength];
+
+            long pos = 0L;
+            messageSizeBytes.CopyTo(bytes, pos);
+            pos += messageSizeBytes.LongLength;
+            messageBytes.CopyTo(bytes, pos);
+
+            Stream str = client.GetStream();
+
+            Shared.WriteBytes(str, client.SendBufferSize, bytes);
+
+            int longSize = Marshal.SizeOf<long>();
+            long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
+
+            return Shared.GetString(Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize));
         }
 
         /// <summary>

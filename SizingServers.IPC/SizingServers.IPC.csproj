@@ -50,7 +50,7 @@
     <Compile Include="Sender.cs" />
     <Compile Include="EndPointManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Settings.cs" />
+    <Compile Include="EndPointManagerServiceConnection.cs" />
     <Compile Include="Shared.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

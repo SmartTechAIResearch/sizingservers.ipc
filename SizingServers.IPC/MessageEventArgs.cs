@@ -13,6 +13,7 @@ namespace SizingServers.IPC {
     /// </summary>
     public class MessageEventArgs : EventArgs {
         /// <summary>
+        /// The sent or received message.
         /// </summary>
         public object Message { get; internal set; }
     }

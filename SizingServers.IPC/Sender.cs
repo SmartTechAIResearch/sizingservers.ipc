@@ -11,9 +11,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SizingServers.IPC {
@@ -37,7 +35,7 @@ namespace SizingServers.IPC {
         public event EventHandler<ErrorEventArgs> OnSendFailed;
 
         private BinaryFormatter _bf;
-        private Dictionary<TcpClient, IPEndPoint> _senders;
+        private Dictionary<TcpClient, IPEndPoint> _tcpSenders;
 
         private readonly object _lock = new object();
 
@@ -60,28 +58,40 @@ namespace SizingServers.IPC {
         /// </summary>
         public bool Buffered { get; private set; }
         /// <summary>
-        /// 
+        /// <para>This is an optional parameter in the constructor.</para>
+        /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
+        /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
         /// </summary>
-        public Settings Settings { get; private set; }
+        public EndPointManagerServiceConnection EndPointManagerServiceConnection { get; private set; }
 
         /// <summary>
         /// <para>Add a new Sender in the code of the process you want to send messages. Make sure the handles matches the one of the Receivers.</para>
         /// <para>This inter process communication only works on the same machine and in the same Windows session.</para>
         /// <para>Suscribe to OnSendFailed for error handeling. Please not Sending will always fail when a Receiver disappears.</para>
         /// </summary>
-        /// <param name="handle">A unique identifier to match the right sender with the right receivers.</param>
+        /// <param name="handle">
+        /// <para>The handle is a value shared by a Sender and its Receivers.  , * + and - cannot be used!</para>
+        /// <para>It links both parties so messages from a Sender get to the right Receivers.</para>
+        /// <para>Make sure this is a unique value: use a GUID for instance:</para>
+        /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
+        /// </param>
+        /// <param name="endPointManagerServiceConnection">
+        /// <para>This is an optional parameter.</para>
+        /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
+        /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
+        /// </param>
         /// <param name="buffered">
         /// <para>When true, a message (+ encapsulation) you send is kept in memory. When you resend the same message it will not be serialized again.</para>
+        /// <para>This buffer can ony hold one message. Using this will make sending messages faster and will take up more memory. Use this wisely for large messages.</para>
         /// </param>
-        /// <param name="settings"></param>
-        public Sender(string handle, bool buffered = false, Settings settings = null) {
+        public Sender(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection = null, bool buffered = false) {
             if (string.IsNullOrWhiteSpace(handle)) throw new ArgumentNullException(handle);
 
             Handle = handle;
             Buffered = buffered;
-            Settings = settings;
+            EndPointManagerServiceConnection = endPointManagerServiceConnection;
 
-            _senders = new Dictionary<TcpClient, IPEndPoint>();
+            _tcpSenders = new Dictionary<TcpClient, IPEndPoint>();
             _bf = new BinaryFormatter();
         }
         /// <summary>
@@ -92,26 +102,27 @@ namespace SizingServers.IPC {
         /// </param>
         public void Send(object message) {
             lock (_lock)
-               try {
+                try {
                     if (!IsDisposed) {
                         BeforeMessageSent?.Invoke(this, new MessageEventArgs() { Message = message });
 
-                        SetSenders();
-                        if (_senders.Count != 0)
+                        SetTcpSenders();
+                        if (_tcpSenders.Count != 0)
                             if (Buffered) {
                                 if (message.GetHashCode() != _hashcode) {
                                     _bytes = SerializeMessage(message);
                                     _hashcode = message.GetHashCode();
                                 }
-                                Parallel.ForEach(_senders, (kvp) => Send(kvp.Key, kvp.Value, _bytes));
-
-                            } else {
-                                Parallel.ForEach(_senders, (kvp) => Send(kvp.Key, kvp.Value, SerializeMessage(message)));
+                                Parallel.ForEach(_tcpSenders, (kvp) => Send(kvp.Key, kvp.Value, _bytes));
+                            }
+                            else {
+                                Parallel.ForEach(_tcpSenders, (kvp) => Send(kvp.Key, kvp.Value, SerializeMessage(message)));
                             }
 
                         AfterMessageSent?.Invoke(this, new MessageEventArgs() { Message = message });
                     }
-                } catch (Exception ex) {
+                }
+                catch (Exception ex) {
                     if (!IsDisposed && OnSendFailed != null) OnSendFailed(this, new ErrorEventArgs(ex));
                 }
         }
@@ -152,25 +163,25 @@ namespace SizingServers.IPC {
         /// <summary>
         /// Clean up the stored tcp clients (_senders) and add new ones if need be.
         /// </summary>
-        private void SetSenders() {
+        private void SetTcpSenders() {
             var newSenders = new Dictionary<TcpClient, IPEndPoint>();
-            foreach (IPEndPoint endPoint in EndPointManager.GetReceiverEndPoints(Handle, Settings)) {
+            foreach (IPEndPoint endPoint in EndPointManager.GetReceiverEndPoints(Handle, EndPointManagerServiceConnection)) {
                 bool senderFound = false;
-                foreach (TcpClient sender in _senders.Keys)
-                    if (_senders[sender].Port == endPoint.Port) {
+                foreach (TcpClient sender in _tcpSenders.Keys)
+                    if (_tcpSenders[sender].Equals(endPoint)) {
                         newSenders.Add(sender, endPoint);
                         senderFound = true;
                         break;
                     }
 
                 if (!senderFound)
-                    newSenders.Add(new TcpClient(), endPoint);
+                    newSenders.Add(new TcpClient(endPoint.AddressFamily), endPoint);
             }
 
-            foreach (TcpClient oldSender in _senders.Keys) {
+            foreach (TcpClient oldSender in _tcpSenders.Keys) {
                 bool equals = false;
                 foreach (TcpClient sender in newSenders.Keys)
-                    if (_senders[oldSender].Port == newSenders[sender].Port) {
+                    if (_tcpSenders[oldSender].Equals(newSenders[sender])) {
                         equals = true;
                         break;
                     }
@@ -178,7 +189,7 @@ namespace SizingServers.IPC {
                     oldSender.Dispose();
             }
 
-            _senders = newSenders;
+            _tcpSenders = newSenders;
         }
 
         private void Send(TcpClient sender, IPEndPoint endPoint, byte[] bytes) {
@@ -186,13 +197,16 @@ namespace SizingServers.IPC {
                 if (!sender.Connected)
                     try {
                         sender.Connect(endPoint);
-                    } catch {
+                    }
+                    catch {
+                        //The receiver is not available anymore.
                         return;
                     }
 
                 Shared.WriteBytes(sender.GetStream(), sender.SendBufferSize, bytes);
 
-            } catch (Exception ex) {
+            }
+            catch (Exception ex) {
                 if (!IsDisposed && OnSendFailed != null) OnSendFailed(this, new ErrorEventArgs(ex));
             }
         }
@@ -202,10 +216,10 @@ namespace SizingServers.IPC {
         public void Dispose() {
             if (!IsDisposed) {
                 IsDisposed = true;
-                if (_senders != null) {
-                    foreach (TcpClient sender in _senders.Keys)
-                        sender.Dispose();
-                    _senders = null;
+                if (_tcpSenders != null) {
+                    foreach (TcpClient tcpSender in _tcpSenders.Keys)
+                        tcpSender.Dispose();
+                    _tcpSenders = null;
                 }
 
                 _bf = null;

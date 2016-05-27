@@ -1,23 +1,22 @@
-﻿using Microsoft.Win32;
+﻿/*
+ * Copyright 2016 (c) Sizing Servers Lab
+ * University College of West-Flanders, Department GKG
+ * 
+ * Author(s):
+ *    Dieter Vandroemme
+ */
+
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace SizingServers.IPC {
     /// <summary>
     /// Shared functions for internal and external use.
     /// </summary>
     public static class Shared {
-
-        #region Serialization and stream handling 
 
         /// <summary>
         /// UTF8
@@ -143,120 +142,5 @@ namespace SizingServers.IPC {
 
             str.Flush();
         }
-        #endregion
-
-        #region Storing and retreiving tcp endpoints
-        /// <summary>
-        /// Get endpoints from the registry.
-        /// </summary>
-        /// <param name="settings"></param>
-        /// <returns></returns>
-        public static Dictionary<string, KeyValuePair<string, HashSet<int>>> GetRegisteredEndPoints(Settings settings) {
-            //Get the end points from the registry.
-            var endPoints = new Dictionary<string, KeyValuePair<string, HashSet<int>>>();
-
-            string value = settings == null ? GetRegisteredEndPoints() : SendAndReceiveEPM(string.Empty, settings.GetClient());
-            if (value.Length != 0) {
-                string[] split = value.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string token in split) {
-                    string[] kvp = token.Split(new char[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
-                    string handle = kvp[0];
-
-                    string[] kvpConnection = kvp[1].Split(new char[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
-                    string hostname = kvpConnection[0];
-                    var ports = kvpConnection[1].Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
-
-                    var hs = new HashSet<int>();
-                    foreach (string port in ports)
-                        hs.Add(int.Parse(port));
-
-                    endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(hostname, hs));
-                }
-            }
-
-            return endPoints;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public static string GetRegisteredEndPoints() {
-            RegistryKey subKey = Registry.CurrentUser.OpenSubKey("Software\\" + EndPointManager.KEY);
-            if (subKey != null)
-                return subKey.GetValue("EndPoints") as string;
-
-            return string.Empty;
-        }
-        
-        /// <summary>
-        /// Set endpoints to the registery.
-        /// </summary>
-        /// <param name="endPoints"></param>
-        /// <param name="settings"></param>
-        public static void SetRegisteredEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, Settings settings) {
-            var sb = new StringBuilder();
-            foreach (string handle in endPoints.Keys) {
-                sb.Append(handle);
-                sb.Append(':');
-
-                var kvpConnection = endPoints[handle];
-                sb.Append(kvpConnection.Key);
-                sb.Append('-');
-
-                foreach (int port in kvpConnection.Value) {
-                    sb.Append(port);
-                    sb.Append('+');
-                }
-
-                sb.Append(',');
-            }
-
-            if (settings == null)
-                SetRegisteredEndPoints(sb.ToString());
-            else
-                SendAndReceiveEPM(sb.ToString(), settings.GetClient());
-        }
-        /// <summary>
-        /// Set endpoints to the registery.
-        /// </summary>
-        /// <param name="endPoints"></param>
-        public static void SetRegisteredEndPoints(string endPoints) {
-            RegistryKey subKey = Registry.CurrentUser.CreateSubKey("Software\\" + EndPointManager.KEY, RegistryKeyPermissionCheck.ReadWriteSubTree, RegistryOptions.Volatile);
-            subKey.SetValue("Endpoints", endPoints, RegistryValueKind.String);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="client"></param>
-        /// <param name="message">Empty string to get the end points or the end point represeted as a string to set them.</param>
-        /// <returns></returns>
-        private static string SendAndReceiveEPM(string message, TcpClient client) {
-            try {
-                //Serialize message
-                byte[] messageBytes = GetBytes(message);
-                byte[] messageSizeBytes = GetBytes(messageBytes.LongLength);
-                byte[] bytes = new byte[messageSizeBytes.LongLength + messageBytes.LongLength];
-
-                long pos = 0L;
-                messageSizeBytes.CopyTo(bytes, pos);
-                pos += messageSizeBytes.LongLength;
-                messageBytes.CopyTo(bytes, pos);
-
-                Stream str = client.GetStream();
-
-                WriteBytes(str, client.SendBufferSize, bytes);
-
-                int longSize = Marshal.SizeOf<long>();
-                long messageSize = GetLong(ReadBytes(str, client.ReceiveBufferSize, longSize));
-
-                return GetString(ReadBytes(str, client.ReceiveBufferSize, messageSize));
-            }
-            catch {
-                throw;
-            }
-        }
-        #endregion
     }
 }

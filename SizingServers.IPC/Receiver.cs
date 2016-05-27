@@ -11,7 +11,6 @@ using System.IO;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
 using System.Threading;
 
 namespace SizingServers.IPC {
@@ -26,7 +25,7 @@ namespace SizingServers.IPC {
         public event EventHandler<MessageEventArgs> MessageReceived;
 
         private BinaryFormatter _bf;
-        private TcpListener _receiver;
+        private TcpListener _tcpReceiver;
 
         /// <summary>
         /// 
@@ -40,31 +39,37 @@ namespace SizingServers.IPC {
         /// </summary>
         public string Handle { get; private set; }
         /// <summary>
-        /// 
+        /// <para>This is an optional parameter in the constructor.</para>
+        /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
+        /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
         /// </summary>
-        public Settings Settings { get; private set; }
+        public EndPointManagerServiceConnection EndPointManagerServiceConnection { get; private set; }
 
         /// <summary>
         /// Receives messages of a Sender having the same handle.
         /// </summary>
         /// <param name="handle">
-        /// <para>The handle is a value shared by a Sender and its Receivers.</para>
+        /// <para>The handle is a value shared by a Sender and its Receivers.  , * + and - cannot be used!</para>
         /// <para>It links both parties so messages from a Sender get to the right Receivers.</para>
         /// <para>Make sure this is a unique value: use a GUID for instance:</para>
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
-        /// <param name="settings">
+        /// <param name="endPointManagerServiceConnection">
+        /// <para>This is an optional parameter.</para>
+        /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
+        /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
         /// </param>
-        public Receiver(string handle, Settings settings = null) {
+        public Receiver(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection = null) {
             Handle = handle;
-            Settings = settings;
+            EndPointManagerServiceConnection = endPointManagerServiceConnection;
 
             for (int i = 0; ; i++) //Try 3 times.
                 try {
-                    _receiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, Settings));
-                    _receiver.Start(1);
+                    _tcpReceiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, EndPointManagerServiceConnection));
+                    _tcpReceiver.Start(1);
                     break;
-                } catch {
+                }
+                catch {
                     //Not important. If it doesn't work the sender does not exist anymore or the sender will handle it.
                 }
 
@@ -78,11 +83,13 @@ namespace SizingServers.IPC {
                 while (!IsDisposed)
                     if (MessageReceived != null) {
                         try {
-                            HandleReceive(_receiver.AcceptTcpClient());
-                        } catch {
+                            HandleReceive(_tcpReceiver.AcceptTcpClient());
+                        }
+                        catch {
                             if (!IsDisposed) throw;
                         }
-                    } else {
+                    }
+                    else {
                         Thread.Sleep(1);
                     }
             }, null);
@@ -112,12 +119,14 @@ namespace SizingServers.IPC {
                             object message = messageIsByteArray ? messageBytes : Shared.GetObject(messageBytes, _bf);
 
                             MessageReceived?.Invoke(this, new MessageEventArgs() { Message = message });
-                        } else {
+                        }
+                        else {
                             //Invalid sender. Close the connection.
                             client.Dispose();
                         }
                     }
-                } catch {
+                }
+                catch {
                     //Not important. If it doesn't work the sender does not exist anymore or the sender will handle it.
                 }
             }, null);
@@ -130,9 +139,9 @@ namespace SizingServers.IPC {
             if (!IsDisposed) {
                 IsDisposed = true;
 
-                if (_receiver != null) {
-                    _receiver.Stop();
-                    _receiver = null;
+                if (_tcpReceiver != null) {
+                    _tcpReceiver.Stop();
+                    _tcpReceiver = null;
                 }
                 _bf = null;
 
