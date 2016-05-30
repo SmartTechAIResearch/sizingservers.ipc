@@ -53,7 +53,8 @@ namespace SizingServers.IPC {
                     break;
                 }
 
-            var endPoints = CleanupEndPoints(GetRegisteredEndPoints(settings), settings);
+            var endPoints = GetRegisteredEndPoints(settings);
+            if (settings == null) CleanupEndPoints(endPoints, false);
             if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(ipAddress.ToString(), new HashSet<int>()));
 
             endPoint = new IPEndPoint(ipAddress, GetAvailableTcpPort());
@@ -77,7 +78,8 @@ namespace SizingServers.IPC {
         public static List<IPEndPoint> GetReceiverEndPoints(string handle, EndPointManagerServiceConnection settings) {
             var endPoints = new List<IPEndPoint>();
 
-            var allEndPoints = CleanupEndPoints(GetRegisteredEndPoints(settings), settings);
+            var allEndPoints = GetRegisteredEndPoints(settings);
+            if (settings == null) CleanupEndPoints(allEndPoints, true);
 
             if (allEndPoints.ContainsKey(handle)) {
                 var kvpConnection = allEndPoints[handle];
@@ -115,6 +117,8 @@ namespace SizingServers.IPC {
                 }
             }
 
+            if (settings == null) CleanupEndPoints(endPoints, true);
+
             return endPoints;
         }
 
@@ -135,9 +139,11 @@ namespace SizingServers.IPC {
         }
 
         /// <summary>
-        /// 
+        /// Only used for local IPC. When using the end point manager service, this service handles the cleaning.
         /// </summary>
-        private static Dictionary<string, KeyValuePair<string, HashSet<int>>> CleanupEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, EndPointManagerServiceConnection settings) {
+        /// <param name="endPoints">All end points that are not used anymore are filtered out.</param>
+        /// <param name="registerEndpoints">Register the cleaned end point is applicable.</param>
+        private static void CleanupEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, bool registerEndpoints) {
             HashSet<int> usedPorts = GetUsedTcpPorts();
 
             bool equals = true;
@@ -145,8 +151,6 @@ namespace SizingServers.IPC {
             foreach (string handle in endPoints.Keys) {
                 var kvpConnection = endPoints[handle];
 
-#warning Fix cleanup
-                //  if (Dns.GetHostEntry(IPAddress.Loopback).Equals(Dns.GetHostEntry(kvpConnection.Key)))
                 foreach (int port in kvpConnection.Value) {
                     if (usedPorts.Contains(port)) {
                         if (!newEndPoints.ContainsKey(handle))
@@ -159,11 +163,10 @@ namespace SizingServers.IPC {
                     }
                 }
             }
-            if (!equals) {
+            if (registerEndpoints && !equals) {
                 endPoints = newEndPoints;
-                SetRegisteredEndPoints(endPoints, settings);
+                SetRegisteredEndPoints(endPoints, null);
             }
-            return endPoints;
         }
 
         /// <summary>

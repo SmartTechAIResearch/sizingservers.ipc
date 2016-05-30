@@ -70,6 +70,13 @@
             </summary>
             <param name="client"></param>
         </member>
+        <member name="M:SizingServers.IPC.EndPointManagerService.Service._cleanupTimer_Elapsed(System.Object,System.Timers.ElapsedEventArgs)">
+            <summary>
+            Cleanup end points that are not in use anymore.
+            </summary>
+            <param name="sender"></param>
+            <param name="e"></param>
+        </member>
         <member name="M:SizingServers.IPC.EndPointManagerService.Service.OnStop">
             <summary>
             

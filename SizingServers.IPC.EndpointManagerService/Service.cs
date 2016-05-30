@@ -7,13 +7,17 @@
  */
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SizingServers.IPC.EndPointManagerService {
     /// <summary>
@@ -25,12 +29,16 @@ namespace SizingServers.IPC.EndPointManagerService {
         /// </summary>
         public const int DEFAULT_TCP_PORT = 4455;
 
+        private readonly object _lock = new object();
+
         private TcpListener _receiver;
         private TcpListener _receiverv6;
 
         private int _port = DEFAULT_TCP_PORT;
         private bool _isDisposed;
         private string _registeredEndPoints = string.Empty;
+
+        private System.Timers.Timer _cleanupTimer = new System.Timers.Timer(60000);
 
         /// <summary>
         /// Serves at storing and providing receiver end points so communication between senders and receivers can be established.
@@ -39,13 +47,15 @@ namespace SizingServers.IPC.EndPointManagerService {
             InitializeComponent();
             eventLog.Source = ServiceName;
             HandleArgs(args);
-        }
 
+            _cleanupTimer.Elapsed += _cleanupTimer_Elapsed;
+            _cleanupTimer.Start();
+        }
+        
         /// <summary>
         /// For debugging purposes only.
         /// </summary>
         public void Start() { OnStart(null); }
-
 
         private void HandleArgs(string[] args) {
             if (args == null || args.Length == 0) {
@@ -112,13 +122,14 @@ namespace SizingServers.IPC.EndPointManagerService {
                         byte[] messageBytes = Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize);
                         string message = Shared.GetString(messageBytes);
 
-                        if (message.Length == 0) {
-                            message = _registeredEndPoints;
-                        }
-                        else {
-                            Interlocked.Exchange(ref _registeredEndPoints, message);
-                            message = string.Empty;
-                        }
+                        lock (_lock)
+                            if (message.Length == 0) {
+                                message = _registeredEndPoints;
+                            }
+                            else {
+                                _registeredEndPoints = message;
+                                message = string.Empty;
+                            }
 
                         messageBytes = Shared.GetBytes(message);
                         byte[] messageSizeBytes = Shared.GetBytes(messageBytes.LongLength);
@@ -138,19 +149,132 @@ namespace SizingServers.IPC.EndPointManagerService {
                 }
             }, null);
         }
+
+        /// <summary>
+        /// Cleanup end points that are not in use anymore.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void _cleanupTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e) {
+            if (!_isDisposed)
+                lock (_lock) {
+                    int equals = 1;
+
+                    var endPoints = DeserializeEndPoints();
+                    var newEndPoints = new ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>>(); ;
+                    Parallel.ForEach(endPoints.Keys, (handle, loopState) => {
+                        if (_isDisposed) loopState.Break();
+
+                        var kvp = endPoints[handle];
+
+                        IPAddress ipAddress = null;
+                        foreach (var ipCandidate in Dns.GetHostEntry(kvp.Key).AddressList) {
+                            if (_isDisposed) loopState.Break();
+                            if (!ipCandidate.Equals(IPAddress.Loopback) && !ipCandidate.Equals(IPAddress.IPv6Loopback) &&
+                                    (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6)) {
+                                ipAddress = ipCandidate;
+                                break;
+                            }
+                        }
+
+                        if (ipAddress != null) {
+                            Parallel.ForEach(kvp.Value, (port, loopState2) => {
+                                if (_isDisposed) loopState2.Break();
+
+                                using (var client = new TcpClient(ipAddress.AddressFamily)) {
+                                    var result = client.BeginConnect(ipAddress, port, null, null);
+
+                                    result.AsyncWaitHandle.WaitOne(10000);
+                                    if (client.Connected) {
+                                        client.EndConnect(result);
+
+                                        newEndPoints.TryAdd(handle, new KeyValuePair<string, ConcurrentBag<int>>(kvp.Key, new ConcurrentBag<int>()));
+                                        newEndPoints[handle].Value.Add(port);
+                                    }
+                                    else {
+                                        Interlocked.Exchange(ref equals, 0);
+                                    }
+                                }
+                            });
+                        }
+                        else {
+                            Interlocked.Exchange(ref equals, 0);
+                        }
+                    });
+
+                    if (equals == 0)
+                        SerializeEndPoints(newEndPoints);
+                }
+        }
+
+        private ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>> DeserializeEndPoints() {
+            var endPointsDic = new ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>>();
+
+            if (_registeredEndPoints.Length != 0) {
+                string[] split = _registeredEndPoints.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string token in split) {
+                    string[] kvp = token.Split(new char[] { '*' }, StringSplitOptions.RemoveEmptyEntries);
+                    string handle = kvp[0];
+
+                    string[] kvpConnection = kvp[1].Split(new char[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+                    string hostname = kvpConnection[0];
+                    var ports = kvpConnection[1].Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    var hs = new ConcurrentBag<int>();
+                    foreach (string port in ports)
+                        hs.Add(int.Parse(port));
+
+                    endPointsDic.TryAdd(handle, new KeyValuePair<string, ConcurrentBag<int>>(hostname, hs));
+                }
+            }
+
+            return endPointsDic;
+        }
+        private void SerializeEndPoints(ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>> endPointsDic) {
+            var sb = new StringBuilder();
+            foreach (string handle in endPointsDic.Keys) {
+                sb.Append(handle);
+                sb.Append('*');
+
+                var kvpConnection = endPointsDic[handle];
+                sb.Append(kvpConnection.Key);
+                sb.Append('-');
+
+                foreach (int port in kvpConnection.Value) {
+                    sb.Append(port);
+                    sb.Append('+');
+                }
+
+                sb.Append(',');
+            }
+
+            _registeredEndPoints = sb.ToString();
+        }
+
         /// <summary>
         /// 
         /// </summary>
         protected override void OnStop() {
-            _isDisposed = true;
-            if (_receiver != null) {
-                try {
-                    _receiver.Stop();
+            if (!_isDisposed) {
+                _isDisposed = true;
+                if (_cleanupTimer != null) {
+                    try {
+                        _cleanupTimer.Dispose();
+                    }
+                    catch {
+                        //Don't care.
+                    }
+                    _cleanupTimer = null;
                 }
-                catch {
-                    //Don't care.
+                if (_receiver != null) {
+                    try {
+                        _receiver.Stop();
+                    }
+                    catch {
+                        //Don't care.
+                    }
+                    _receiver = null;
                 }
-                _receiver = null;
             }
         }
     }

@@ -215,10 +215,12 @@
             </summary>
             <returns></returns>
         </member>
-        <member name="M:SizingServers.IPC.EndPointManager.CleanupEndPoints(System.Collections.Generic.Dictionary{System.String,System.Collections.Generic.KeyValuePair{System.String,System.Collections.Generic.HashSet{System.Int32}}},SizingServers.IPC.EndPointManagerServiceConnection)">
+        <member name="M:SizingServers.IPC.EndPointManager.CleanupEndPoints(System.Collections.Generic.Dictionary{System.String,System.Collections.Generic.KeyValuePair{System.String,System.Collections.Generic.HashSet{System.Int32}}},System.Boolean)">
             <summary>
-            
+            Only used for local IPC. When using the end point manager service, this service handles the cleaning.
             </summary>
+            <param name="endPoints">All end points that are not used anymore are filtered out.</param>
+            <param name="registerEndpoints">Register the cleaned end point is applicable.</param>
         </member>
         <member name="M:SizingServers.IPC.EndPointManager.SetRegisteredEndPoints(System.Collections.Generic.Dictionary{System.String,System.Collections.Generic.KeyValuePair{System.String,System.Collections.Generic.HashSet{System.Int32}}},SizingServers.IPC.EndPointManagerServiceConnection)">
             <summary>

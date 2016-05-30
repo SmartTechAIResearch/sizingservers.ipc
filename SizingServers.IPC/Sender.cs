@@ -196,7 +196,13 @@ namespace SizingServers.IPC {
             try {
                 if (!sender.Connected)
                     try {
-                        sender.Connect(endPoint);
+                        var result = sender.BeginConnect(endPoint.Address, endPoint.Port, null, null);
+                        result.AsyncWaitHandle.WaitOne(10000);
+
+                        if (!sender.Connected)
+                            throw new Exception("Could not connect to a receiver " + endPoint.Address + ":" + endPoint.Port + ".");
+
+                        sender.EndConnect(result);
                     }
                     catch {
                         //The receiver is not available anymore.

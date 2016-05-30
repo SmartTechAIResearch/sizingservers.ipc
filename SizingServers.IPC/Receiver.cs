@@ -66,7 +66,7 @@ namespace SizingServers.IPC {
             for (int i = 0; ; i++) //Try 3 times.
                 try {
                     _tcpReceiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, EndPointManagerServiceConnection));
-                    _tcpReceiver.Start(1);
+                    _tcpReceiver.Start(endPointManagerServiceConnection == null ? 1 : 2); //Keep one connection open to enable the service pinging it.
                     break;
                 }
                 catch {
@@ -86,7 +86,8 @@ namespace SizingServers.IPC {
                             HandleReceive(_tcpReceiver.AcceptTcpClient());
                         }
                         catch {
-                            if (!IsDisposed) throw;
+                            if (!IsDisposed)
+                                throw;
                         }
                     }
                     else {
