@@ -25,7 +25,7 @@ namespace SizingServers.IPC {
         /// <summary>
         /// Used for a key in the registry to store the end points.
         /// </summary>
-        public const string KEY = "RandomUtils.Message{8B20C7BD-634B-408D-B337-732644177389}";
+        public const string KEY = "SizingServers.IPC{8B20C7BD-634B-408D-B337-732644177389}";
 
         private static Mutex _namedMutex = new Mutex(false, KEY);
 

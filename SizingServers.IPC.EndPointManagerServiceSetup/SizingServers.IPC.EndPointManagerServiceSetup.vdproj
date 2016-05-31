@@ -94,6 +94,14 @@
             "PrerequisitesLocation" = "2:1"
             "Url" = "8:"
             "ComponentsUrl" = "8:"
+                "Items"
+                {
+                    "{EDC2488A-8267-493A-A98E-7D9C3B36CDF3}:.NETFramework,Version=v4.5"
+                    {
+                    "Name" = "8:Microsoft .NET Framework 4.5 (x86 and x64)"
+                    "ProductCode" = "8:.NETFramework,Version=v4.5"
+                    }
+                }
             }
         }
     }
@@ -144,7 +152,7 @@
                 {
                 "Name" = "8:.NET Framework"
                 "Message" = "8:[VSDNETMSG]"
-                "FrameworkVersion" = "8:.NETFramework,Version=v4.5"
+                "FrameworkVersion" = "8:.NETFramework,Version=v4.6"
                 "AllowLaterVersions" = "11:FALSE"
                 "InstallUrl" = "8:http://go.microsoft.com/fwlink/?LinkId=395269"
                 }
@@ -159,6 +167,11 @@
             "AssemblyAsmDisplayName" = "8:SizingServers.IPC, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
+                    "_68A5E781EC0DD444D5DFEFCC2C691DA5"
+                    {
+                    "Name" = "8:SizingServers.IPC.dll"
+                    "Attributes" = "3:512"
+                    }
                 }
             "SourcePath" = "8:SizingServers.IPC.dll"
             "TargetName" = "8:"
@@ -235,13 +248,13 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:SizingServers.IPC.EndPointManagerService"
         "ProductCode" = "8:{0A72F5B1-9D55-492B-B8D7-8DDDFA1D1ED8}"
-        "PackageCode" = "8:{7E83293B-2D0E-4799-A632-9030ACB77B83}"
+        "PackageCode" = "8:{35673081-A5D3-4028-BECF-EC3704AC0A22}"
         "UpgradeCode" = "8:{F5878213-1E36-4546-A41A-229DEE4AD280}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:FALSE"
         "DetectNewerInstalledVersion" = "11:TRUE"
-        "InstallAllUsers" = "11:FALSE"
+        "InstallAllUsers" = "11:TRUE"
         "ProductVersion" = "8:1.0.0"
         "Manufacturer" = "8:Sizing Servers Lab"
         "ARPHELPTELEPHONE" = "8:"
@@ -250,7 +263,7 @@
         "Subject" = "8:"
         "ARPCONTACT" = "8:Sizing Servers Lab"
         "Keywords" = "8:"
-        "ARPCOMMENTS" = "8:"
+        "ARPCOMMENTS" = "8:The service will listen on tcp port 4455. Set your own port in the service Start parameters (e.g. 4567). Don't forget to add a firewall exception."
         "ARPURLINFOABOUT" = "8:"
         "ARPPRODUCTICON" = "8:"
         "ARPIconIndex" = "3:0"
@@ -447,8 +460,8 @@
                             "Type" = "3:3"
                             "ContextData" = "8:"
                             "Attributes" = "3:0"
-                            "Setting" = "3:1"
-                            "Value" = "8:#1203"
+                            "Setting" = "3:2"
+                            "Value" = "8:The installer will guide you through the steps required to install [ProductName] on your computer. The service will listen on tcp port 4455. Set your own port in the service Start parameters (e.g. 4567). Don't forget to add a firewall exception."
                             "DefaultValue" = "8:#1203"
                             "UsePlugInResources" = "11:TRUE"
                             }
@@ -695,8 +708,8 @@
                             "Type" = "3:3"
                             "ContextData" = "8:"
                             "Attributes" = "3:0"
-                            "Setting" = "3:1"
-                            "Value" = "8:#1203"
+                            "Setting" = "3:2"
+                            "Value" = "8:The installer will guide you through the steps required to install [ProductName] on your computer. The service will listen on tcp port 4455. Set your own port in the service Start parameters (e.g. 4567). Don't forget to add a firewall exception."
                             "DefaultValue" = "8:#1203"
                             "UsePlugInResources" = "11:TRUE"
                             }

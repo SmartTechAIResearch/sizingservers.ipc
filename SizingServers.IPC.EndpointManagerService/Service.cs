@@ -35,6 +35,8 @@ namespace SizingServers.IPC.EndPointManagerService {
         private TcpListener _receiverv6;
 
         private int _port = DEFAULT_TCP_PORT;
+        private string _password;
+        private byte[] _salt;
         private bool _isDisposed;
         private string _registeredEndPoints = string.Empty;
 
@@ -51,7 +53,7 @@ namespace SizingServers.IPC.EndPointManagerService {
             _cleanupTimer.Elapsed += _cleanupTimer_Elapsed;
             _cleanupTimer.Start();
         }
-        
+
         /// <summary>
         /// For debugging purposes only.
         /// </summary>
@@ -66,8 +68,38 @@ namespace SizingServers.IPC.EndPointManagerService {
                     eventLog.WriteEntry("Attempting to listen on tcp port " + _port + ".");
                 else
                     eventLog.WriteEntry("Failed to get the tcp port in the startup arguments. The given argument cannot be parsed to an integer. Attempting to listen on the default tcp port (" + _port + ").", EventLogEntryType.Warning);
+
+                if (args.Length == 3) {
+                    _salt = ConvertSalt(args[2]);
+                    if (_salt != null) {
+                        _password = args[1].Trim();
+                        if (_password.Length == 0) {
+                            _password = null;
+                            _salt = null;
+                        }
+                    }
+                }
             }
         }
+
+        private byte[] ConvertSalt(string salt) {
+            byte[] bytes = null;
+            if (salt.StartsWith("{") && salt.EndsWith("}")) {
+                salt = salt.Substring(1, salt.Length - 2);
+                var split = salt.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+
+                bytes = new byte[split.Length];
+                for (int i = 0; i != bytes.Length; i++) {
+                    byte b;
+                    if (!byte.TryParse(split[i].Trim(), out b))
+                        return null;
+
+                    bytes[i] = b;
+                }
+            }
+            return bytes;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -120,7 +152,7 @@ namespace SizingServers.IPC.EndPointManagerService {
                         int longSize = Marshal.SizeOf<long>();
                         long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
                         byte[] messageBytes = Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize);
-                        string message = Shared.GetString(messageBytes);
+                        string message = MessageFromBytes(messageBytes);
 
                         lock (_lock)
                             if (message.Length == 0) {
@@ -131,7 +163,7 @@ namespace SizingServers.IPC.EndPointManagerService {
                                 message = string.Empty;
                             }
 
-                        messageBytes = Shared.GetBytes(message);
+                        messageBytes = MessageToBytes(message);
                         byte[] messageSizeBytes = Shared.GetBytes(messageBytes.LongLength);
                         byte[] bytes = new byte[messageSizeBytes.LongLength + messageBytes.LongLength];
 
@@ -148,6 +180,16 @@ namespace SizingServers.IPC.EndPointManagerService {
                         eventLog.WriteEntry("Failed handeling endpoint request. " + ex, EventLogEntryType.Warning);
                 }
             }, null);
+        }
+
+        private string MessageFromBytes(byte[] messageBytes) {
+            string message = Shared.GetString(messageBytes);
+            if (_password != null) message =  Shared.Decrypt(message, _password, _salt);
+            return message;
+        }
+        private byte[] MessageToBytes(string message) {
+            if (_password != null) message = Shared.Encrypt(message, _password, _salt);
+            return Shared.GetBytes(message);
         }
 
         /// <summary>
