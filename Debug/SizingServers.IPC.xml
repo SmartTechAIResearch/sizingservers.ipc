@@ -4,6 +4,17 @@
         <name>SizingServers.IPC</name>
     </assembly>
     <members>
+        <member name="T:SizingServers.IPC.EndPointManagerServiceConnectionException">
+            <summary>
+            Thrown when could not connect to the epms via EndPointManagerServiceConnection.GetClient();
+            </summary>
+        </member>
+        <member name="M:SizingServers.IPC.EndPointManagerServiceConnectionException.#ctor(System.String)">
+            <summary>
+            Thrown when could not connect to the epms via EndPointManagerServiceConnection.GetClient();
+            </summary>
+            <param name="message"></param>
+        </member>
         <member name="T:SizingServers.IPC.MessageEventArgs">
             <summary>
             </summary>

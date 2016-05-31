@@ -29,7 +29,7 @@ namespace SizingServers.IPC {
                 result.AsyncWaitHandle.WaitOne(10000);
 
                 if (!_client.Connected)
-                    throw new Exception("Could not connect to the end point manager service " + EndPointManagerServiceEP.Address + ":" + EndPointManagerServiceEP.Port + ".");
+                    throw new EndPointManagerServiceConnectionException("Could not connect to the end point manager service " + EndPointManagerServiceEP.Address + ":" + EndPointManagerServiceEP.Port + ".");
 
                 _client.EndConnect(result);
             }

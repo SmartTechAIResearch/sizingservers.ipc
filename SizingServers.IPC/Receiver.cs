@@ -69,7 +69,10 @@ namespace SizingServers.IPC {
                     _tcpReceiver.Start(endPointManagerServiceConnection == null ? 1 : 2); //Keep one connection open to enable the service pinging it.
                     break;
                 }
-                catch {
+                catch (EndPointManagerServiceConnectionException) {
+                    throw;
+                }
+                catch (Exception) {
                     //Not important. If it doesn't work the sender does not exist anymore or the sender will handle it.
                 }
 

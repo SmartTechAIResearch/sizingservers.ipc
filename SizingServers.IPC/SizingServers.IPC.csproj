@@ -45,6 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EndPointManagerServiceConnectionException.cs" />
     <Compile Include="MessageEventArgs.cs" />
     <Compile Include="Receiver.cs" />
     <Compile Include="Sender.cs" />
