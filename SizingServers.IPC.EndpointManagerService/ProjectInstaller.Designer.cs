@@ -23,6 +23,7 @@
         /// the contents of this method with the code editor.
         /// </summary>
         private void InitializeComponent() {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ProjectInstaller));
             this.serviceProcessInstaller1 = new System.ServiceProcess.ServiceProcessInstaller();
             this.serviceInstaller1 = new System.ServiceProcess.ServiceInstaller();
             // 
@@ -34,8 +35,7 @@
             // 
             // serviceInstaller1
             // 
-            this.serviceInstaller1.Description = "Default listening on tcp port 4455. Set your own port in the Start parameters (e." +
-    "g. 4567). Don\'t forget to add a firewall exception.";
+            this.serviceInstaller1.Description = resources.GetString("serviceInstaller1.Description");
             this.serviceInstaller1.ServiceName = "SizingServers.IPC.EndPointManagerService";
             this.serviceInstaller1.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
             this.serviceInstaller1.AfterInstall += new System.Configuration.Install.InstallEventHandler(this.serviceInstaller1_AfterInstall);

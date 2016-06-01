@@ -14,7 +14,7 @@ namespace SizingServers.IPC.EndPointManagerService {
         /// The main entry point for the application.
         /// </summary>
         static void Main(string[] args) {
-            //(new Service(args)).Start();
+            //(new Service(args)).Start(args);
             //System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite);
 
             ServiceBase.Run(new Service(args));

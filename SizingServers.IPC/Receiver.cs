@@ -16,7 +16,6 @@ using System.Threading;
 namespace SizingServers.IPC {
     /// <summary>
     /// <para>Add a new Receiver in the code of the process you want to receive messages. Make sure the handles matches the one of the Sender.</para>
-    /// <para>This inter process communication only works on the same machine and in the same Windows session.</para>
     /// </summary>
     public class Receiver : IDisposable {
         /// <summary>
@@ -46,7 +45,9 @@ namespace SizingServers.IPC {
         public EndPointManagerServiceConnection EndPointManagerServiceConnection { get; private set; }
 
         /// <summary>
-        /// Receives messages of a Sender having the same handle.
+        /// <para>Receives messages of a Sender having the same handle.</para>
+        /// <para>When using the end point manager service, use Shared.Encrypt(...) (and Shared.Decrypt(...)) to encrypt your received messages via the MessageReceived event.</para>
+        /// <para>Alternatively you can use an ssh tunnel, that will probably be safer and faster</para>
         /// </summary>
         /// <param name="handle">
         /// <para>The handle is a value shared by a Sender and its Receivers.  , * + and - cannot be used!</para>

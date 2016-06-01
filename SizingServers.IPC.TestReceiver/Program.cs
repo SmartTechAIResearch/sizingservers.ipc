@@ -5,7 +5,7 @@
  * Author(s):
  *    Dieter Vandroemme
  */
- 
+
 using System;
 using System.Net;
 
@@ -16,7 +16,8 @@ namespace SizingServers.IPC.TestReceiver {
             Console.Title = "SizingServers.Message.TestReceiver";
             Console.WriteLine("Messages are received from TestSender.");
 
-            var epmsCon = new EndPointManagerServiceConnection() { EndPointManagerServiceEP = new IPEndPoint(IPAddress.Loopback, 4455) };
+            //var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT));
+            var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT), "password", new byte[] { 0x01, 0x02, 0x03 });
 
             _receiver = new Receiver("SizingServers.IPC.Test", epmsCon);
             _receiver.MessageReceived += _receiver_MessageReceived;
@@ -28,7 +29,7 @@ namespace SizingServers.IPC.TestReceiver {
 
         private static void _receiver_MessageReceived(object sender, MessageEventArgs e) {
             object message = e.Message;
-            if (message is byte[]) message =System.Text.Encoding.UTF8.GetString(message as byte[]);
+            if (message is byte[]) message = System.Text.Encoding.UTF8.GetString(message as byte[]);
             Console.WriteLine("'" + message + "' received");
         }
     }

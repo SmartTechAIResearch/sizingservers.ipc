@@ -10,6 +10,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -24,19 +25,17 @@ namespace SizingServers.IPC.EndPointManagerService {
     /// Serves at storing and providing receiver end points so communication between senders and receivers can be established.
     /// </summary>
     public partial class Service : ServiceBase {
-        /// <summary>
-        /// Default port for the service to listen on.
-        /// </summary>
-        public const int DEFAULT_TCP_PORT = 4455;
-
         private readonly object _lock = new object();
 
         private TcpListener _receiver;
         private TcpListener _receiverv6;
 
-        private int _port = DEFAULT_TCP_PORT;
+        private int _port;
+
+        //Encryption of traffic. Alternatively you can use an ssh tunnel, that will probably be safer and faster.
         private string _password;
         private byte[] _salt;
+
         private bool _isDisposed;
         private string _registeredEndPoints = string.Empty;
 
@@ -57,25 +56,35 @@ namespace SizingServers.IPC.EndPointManagerService {
         /// <summary>
         /// For debugging purposes only.
         /// </summary>
-        public void Start() { OnStart(null); }
+        public void Start(string[] args) { OnStart(args); }
 
         private void HandleArgs(string[] args) {
+            _port = Shared.EPMS_DEFAULT_TCP_PORT;
+            _password = null;
+            _salt = null;
+
             if (args == null || args.Length == 0) {
                 eventLog.WriteEntry("No port in startup arguments given. Attempting to listen on the default tcp port (" + _port + ").");
             }
             else {
-                if (int.TryParse(args[0], out _port))
+                if (int.TryParse(args[0], out _port)) {
                     eventLog.WriteEntry("Attempting to listen on tcp port " + _port + ".");
-                else
+                }
+                else {
+                    _port = Shared.EPMS_DEFAULT_TCP_PORT;
                     eventLog.WriteEntry("Failed to get the tcp port in the startup arguments. The given argument cannot be parsed to an integer. Attempting to listen on the default tcp port (" + _port + ").", EventLogEntryType.Warning);
+                }
 
                 if (args.Length == 3) {
                     _salt = ConvertSalt(args[2]);
                     if (_salt != null) {
-                        _password = args[1].Trim();
+                        _password = args[1];
                         if (_password.Length == 0) {
                             _password = null;
                             _salt = null;
+                        }
+                        else {
+                            eventLog.WriteEntry("Encrypting traffic to and from the service using the given password and salt.");
                         }
                     }
                 }
@@ -84,17 +93,20 @@ namespace SizingServers.IPC.EndPointManagerService {
 
         private byte[] ConvertSalt(string salt) {
             byte[] bytes = null;
+            salt = salt.Trim();
             if (salt.StartsWith("{") && salt.EndsWith("}")) {
                 salt = salt.Substring(1, salt.Length - 2);
                 var split = salt.Split(new string[] { "," }, StringSplitOptions.RemoveEmptyEntries);
 
                 bytes = new byte[split.Length];
                 for (int i = 0; i != bytes.Length; i++) {
-                    byte b;
-                    if (!byte.TryParse(split[i].Trim(), out b))
+                    try {
+                        bytes[i] = Convert.ToByte(split[i].Trim().Substring(2), 16);
+                    }
+                    catch {
+                        eventLog.WriteEntry("Failed parsing the salt from the startup arguments. Reverting to unencrypted traffic", EventLogEntryType.Warning);
                         return null;
-
-                    bytes[i] = b;
+                    }
                 }
             }
             return bytes;

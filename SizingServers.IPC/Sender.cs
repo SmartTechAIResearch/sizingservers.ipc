@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 namespace SizingServers.IPC {
     /// <summary>
     /// <para>Add a new Sender in the code of the process you want to send messages. Make sure the handles matches the one of the Receivers.</para>
-    /// <para>This inter process communication only works on the same machine and in the same Windows session.</para>
     /// <para>Suscribe to OnSendFailed for error handeling. Please not Sending will always fail when a Receiver disappears.</para>
     /// </summary>
     public class Sender : IDisposable {
@@ -66,7 +65,8 @@ namespace SizingServers.IPC {
 
         /// <summary>
         /// <para>Add a new Sender in the code of the process you want to send messages. Make sure the handles matches the one of the Receivers.</para>
-        /// <para>This inter process communication only works on the same machine and in the same Windows session.</para>
+        /// <para>When using the end point manager service, use Shared.Encrypt(...) (and Shared.Decrypt(...)) to encrypt messages before sending them.</para>
+        /// <para>Alternatively you can use an ssh tunnel, that will probably be safer and faster</para>
         /// <para>Suscribe to OnSendFailed for error handeling. Please not Sending will always fail when a Receiver disappears.</para>
         /// </summary>
         /// <param name="handle">

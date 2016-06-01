@@ -167,11 +167,6 @@
             "AssemblyAsmDisplayName" = "8:SizingServers.IPC, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
-                    "_68A5E781EC0DD444D5DFEFCC2C691DA5"
-                    {
-                    "Name" = "8:SizingServers.IPC.dll"
-                    "Attributes" = "3:512"
-                    }
                 }
             "SourcePath" = "8:SizingServers.IPC.dll"
             "TargetName" = "8:"
@@ -248,7 +243,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:SizingServers.IPC.EndPointManagerService"
         "ProductCode" = "8:{0A72F5B1-9D55-492B-B8D7-8DDDFA1D1ED8}"
-        "PackageCode" = "8:{35673081-A5D3-4028-BECF-EC3704AC0A22}"
+        "PackageCode" = "8:{7D93C735-B363-48B1-8901-4CC3D5B8B2F7}"
         "UpgradeCode" = "8:{F5878213-1E36-4546-A41A-229DEE4AD280}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
@@ -263,7 +258,7 @@
         "Subject" = "8:"
         "ARPCONTACT" = "8:Sizing Servers Lab"
         "Keywords" = "8:"
-        "ARPCOMMENTS" = "8:The service will listen on tcp port 4455. Set your own port in the service Start parameters (e.g. 4567). Don't forget to add a firewall exception."
+        "ARPCOMMENTS" = "8:Default listening on tcp port 4455. Set your own port in the Start parameters. Password and salt are optional for encryption of traffic to and from the service. The given salt is a byte array representation. Example 4567 or 4567 password {0x1,0x2,0x3} Don't forget to add a firewall exception for the inbound tcp port."
         "ARPURLINFOABOUT" = "8:"
         "ARPPRODUCTICON" = "8:"
         "ARPIconIndex" = "3:0"
@@ -461,7 +456,7 @@
                             "ContextData" = "8:"
                             "Attributes" = "3:0"
                             "Setting" = "3:2"
-                            "Value" = "8:The installer will guide you through the steps required to install [ProductName] on your computer. The service will listen on tcp port 4455. Set your own port in the service Start parameters (e.g. 4567). Don't forget to add a firewall exception."
+                            "Value" = "8:The installer will guide you through the steps required to install [ProductName] on your computer. The service will listen on tcp port 4455. Set your own port in the service Start parameters. Password and salt are optional: encryption of traffic to and from the service. The given salt is a byte array representation. Alternatively you can use an ssh tunnel, that will probably be safer and faster. Example: 4567 or 4567 password {0x01,0x02,0x03} Don't forget to add a firewall exception for the inbound tcp port. Status messages and errors are logged to the Windows Event Log (Event Viewer)."
                             "DefaultValue" = "8:#1203"
                             "UsePlugInResources" = "11:TRUE"
                             }
@@ -709,7 +704,7 @@
                             "ContextData" = "8:"
                             "Attributes" = "3:0"
                             "Setting" = "3:2"
-                            "Value" = "8:The installer will guide you through the steps required to install [ProductName] on your computer. The service will listen on tcp port 4455. Set your own port in the service Start parameters (e.g. 4567). Don't forget to add a firewall exception."
+                            "Value" = "8:The installer will guide you through the steps required to install [ProductName] on your computer. The service will listen on tcp port 4455. Set your own port in the service Start parameters. Password and salt are optional: encryption of traffic to and from the service. The given salt is a byte array representation. Alternatively you can use an ssh tunnel, that will probably be safer and faster. Example: 4567 or 4567 password {0x01,0x02,0x03} Don't forget to add a firewall exception for the inbound tcp port. Status messages and errors are logged to the Windows Event Log (Event Viewer)."
                             "DefaultValue" = "8:#1203"
                             "UsePlugInResources" = "11:TRUE"
                             }

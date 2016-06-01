@@ -123,6 +123,9 @@
   <metadata name="serviceInstaller1.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>17, 17</value>
   </metadata>
+  <data name="serviceInstaller1.Description" xml:space="preserve">
+    <value>Default listening on tcp port 4455. Set your own port in the service Start parameters. Password and salt are optional: encryption of traffic to and from the service. The given salt is a byte array representation. Alternatively you can use an ssh tunnel, that will probably be safer and faster. Example: 4567 or 4567,password,{0x01,0x02,0x03} Don't forget to add a firewall exception for the inbound tcp port. Status messages and errors are logged to the Windows Event Log (Event Viewer).</value>
+  </data>
   <metadata name="$this.TrayLargeIcon" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>False</value>
   </metadata>

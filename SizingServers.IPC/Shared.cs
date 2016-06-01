@@ -18,6 +18,10 @@ namespace SizingServers.IPC {
     /// Shared functions for internal and external use.
     /// </summary>
     public static class Shared {
+        /// <summary>
+        /// Default port for the epms service to listen on.
+        /// </summary>
+        public const int EPMS_DEFAULT_TCP_PORT = 4455;
 
         /// <summary>
         /// UTF8
@@ -145,17 +149,27 @@ namespace SizingServers.IPC {
         }
 
         /// <summary>
-        /// A simple way to encrypt a string.
-        /// Example (don't use this): s.Encrypt("password", new byte[] { 0x59, 0x06, 0x59, 0x3e, 0x21, 0x4e, 0x55, 0x34, 0x96, 0x15, 0x11, 0x13, 0x72 });
+        /// A simple way to encrypt a string. (Rijndael, utf8)
+        /// /// Example (don't use this password and salt): Encrypt("secret", "password", new byte[] { 0x59, 0x06, 0x59, 0x3e, 0x21, 0x4e, 0x55, 0x34, 0x96, 0x15, 0x11, 0x13, 0x72 });
         /// </summary>
-        /// <param name="s"></param>
+        /// <param name="toEncrypt"></param>
         /// <param name="password"></param>
         /// <param name="salt"></param>
         /// <returns>The encrypted string.</returns>
-        public static string Encrypt(this string s, string password, byte[] salt) {
+        public static string Encrypt(string toEncrypt, string password, byte[] salt) {
+            return Encoding.UTF8.GetString(Encrypt(Encoding.UTF8.GetBytes(toEncrypt), password, salt));
+        }
+        /// <summary>
+        /// Encrypt a byte array. (Rijndael)
+        /// Example (don't use this password and salt): Encrypt(new byte[] { 0x01, 0x02, 0x03 }, "password", new byte[] { 0x59, 0x06, 0x59, 0x3e, 0x21, 0x4e, 0x55, 0x34, 0x96, 0x15, 0x11, 0x13, 0x72 });
+        /// </summary>
+        /// <param name="toEncrypt"></param>
+        /// <param name="password"></param>
+        /// <param name="salt"></param>
+        /// <returns></returns>
+        public static byte[] Encrypt(byte[] toEncrypt, string password, byte[] salt) {
             var pdb = new PasswordDeriveBytes(password, salt);
-            byte[] encrypted = Encrypt(Encoding.Unicode.GetBytes(s), pdb.GetBytes(32), pdb.GetBytes(16));
-            return Convert.ToBase64String(encrypted);
+            return Encrypt(toEncrypt, pdb.GetBytes(32), pdb.GetBytes(16));
         }
         private static byte[] Encrypt(byte[] toEncrypt, byte[] key, byte[] IV) {
             var ms = new MemoryStream();
@@ -170,17 +184,27 @@ namespace SizingServers.IPC {
             return ms.ToArray();
         }
         /// <summary>
-        /// A simple way to decrypt a string.
-        /// Example (don't use this): s.Decrypt("password", new byte[] { 0x59, 0x06, 0x59, 0x3e, 0x21, 0x4e, 0x55, 0x34, 0x96, 0x15, 0x11, 0x13, 0x72 });
+        /// A simple way to decrypt a string. (Rijndael, utf8)
+        /// Example (don't use this password and salt): Decrypt("****", "password", new byte[] { 0x59, 0x06, 0x59, 0x3e, 0x21, 0x4e, 0x55, 0x34, 0x96, 0x15, 0x11, 0x13, 0x72 });
         /// </summary>
-        /// <param name="s"></param>
+        /// <param name="toDecrypt"></param>
         /// <param name="password"></param>
         /// <param name="salt"></param>
         /// <returns>The decrypted string.</returns>
-        public static string Decrypt(this string s, string password, byte[] salt) {
+        public static string Decrypt(string toDecrypt, string password, byte[] salt) {
+            return Encoding.UTF8.GetString(Decrypt(Encoding.UTF8.GetBytes(toDecrypt), password, salt));
+        }
+        /// <summary>
+        /// Decrypt a byte array. (Rijndael)
+        /// Example (don't use this password and salt): Decrypt(****, "password", new byte[] { 0x59, 0x06, 0x59, 0x3e, 0x21, 0x4e, 0x55, 0x34, 0x96, 0x15, 0x11, 0x13, 0x72 });
+        /// </summary>
+        /// <param name="toDecrypt"></param>
+        /// <param name="password"></param>
+        /// <param name="salt"></param>
+        /// <returns></returns>
+        public static byte[] Decrypt(byte[] toDecrypt, string password, byte[] salt) {
             var pdb = new PasswordDeriveBytes(password, salt);
-            byte[] decrypted = Decrypt(Convert.FromBase64String(s), pdb.GetBytes(32), pdb.GetBytes(16));
-            return Encoding.Unicode.GetString(decrypted);
+            return Decrypt(toDecrypt, pdb.GetBytes(32), pdb.GetBytes(16));
         }
         private static byte[] Decrypt(byte[] toDecrypt, byte[] Key, byte[] IV) {
             var ms = new MemoryStream();

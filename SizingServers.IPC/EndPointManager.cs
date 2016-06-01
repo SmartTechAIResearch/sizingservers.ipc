@@ -38,9 +38,9 @@ namespace SizingServers.IPC {
         /// <para>Make sure this is a unique value: use a GUID for instance:</para>
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
-        /// <param name="settings"></param>
+        /// <param name="endPointManagerServiceConnection"></param>
         /// <returns></returns>
-        public static IPEndPoint RegisterReceiver(string handle, EndPointManagerServiceConnection settings) {
+        public static IPEndPoint RegisterReceiver(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection) {
             if (string.IsNullOrWhiteSpace(handle)) throw new ArgumentNullException(handle);
 
             IPEndPoint endPoint = null;
@@ -53,13 +53,13 @@ namespace SizingServers.IPC {
                     break;
                 }
 
-            var endPoints = GetRegisteredEndPoints(settings);
-            if (settings == null) CleanupEndPoints(endPoints, false);
+            var endPoints = GetRegisteredEndPoints(endPointManagerServiceConnection);
+            if (endPointManagerServiceConnection == null) CleanupEndPoints(endPoints, false);
             if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(ipAddress.ToString(), new HashSet<int>()));
 
             endPoint = new IPEndPoint(ipAddress, GetAvailableTcpPort());
             endPoints[handle].Value.Add(endPoint.Port);
-            SetRegisteredEndPoints(endPoints, settings);
+            SetRegisteredEndPoints(endPoints, endPointManagerServiceConnection);
 
             return endPoint;
         }
@@ -73,13 +73,13 @@ namespace SizingServers.IPC {
         /// <para>Make sure this is a unique value: use a GUID for instance:</para>
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
-        /// <param name="settings"></param>
+        /// <param name="endPointManagerServiceConnection"></param>
         /// <returns></returns>
-        public static List<IPEndPoint> GetReceiverEndPoints(string handle, EndPointManagerServiceConnection settings) {
+        public static List<IPEndPoint> GetReceiverEndPoints(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection) {
             var endPoints = new List<IPEndPoint>();
 
-            var allEndPoints = GetRegisteredEndPoints(settings);
-            if (settings == null) CleanupEndPoints(allEndPoints, true);
+            var allEndPoints = GetRegisteredEndPoints(endPointManagerServiceConnection);
+            if (endPointManagerServiceConnection == null) CleanupEndPoints(allEndPoints, true);
 
             if (allEndPoints.ContainsKey(handle)) {
                 var kvpConnection = allEndPoints[handle];
@@ -93,12 +93,12 @@ namespace SizingServers.IPC {
 
         /// <summary>
         /// </summary>
-        /// <param name="settings"></param>
+        /// <param name="endPointManagerServiceConnection"></param>
         /// <returns></returns>
-        private static Dictionary<string, KeyValuePair<string, HashSet<int>>> GetRegisteredEndPoints(EndPointManagerServiceConnection settings) {
+        private static Dictionary<string, KeyValuePair<string, HashSet<int>>> GetRegisteredEndPoints(EndPointManagerServiceConnection endPointManagerServiceConnection) {
             var endPoints = new Dictionary<string, KeyValuePair<string, HashSet<int>>>();
 
-            string value = settings == null ? GetRegisteredEndPoints() : SendAndReceiveEPM(string.Empty, settings.GetClient());
+            string value = endPointManagerServiceConnection == null ? GetRegisteredEndPoints() : endPointManagerServiceConnection.SendAndReceiveEPM(string.Empty);
             if (value.Length != 0) {
                 string[] split = value.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string token in split) {
@@ -117,7 +117,7 @@ namespace SizingServers.IPC {
                 }
             }
 
-            if (settings == null) CleanupEndPoints(endPoints, true);
+            if (endPointManagerServiceConnection == null) CleanupEndPoints(endPoints, true);
 
             return endPoints;
         }
@@ -173,8 +173,8 @@ namespace SizingServers.IPC {
         /// Set endpoints to the registery.
         /// </summary>
         /// <param name="endPoints"></param>
-        /// <param name="settings"></param>
-        private static void SetRegisteredEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, EndPointManagerServiceConnection settings) {
+        /// <param name="endPointManagerServiceConnection"></param>
+        private static void SetRegisteredEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, EndPointManagerServiceConnection endPointManagerServiceConnection) {
             var sb = new StringBuilder();
             foreach (string handle in endPoints.Keys) {
                 sb.Append(handle);
@@ -192,10 +192,10 @@ namespace SizingServers.IPC {
                 sb.Append(',');
             }
 
-            if (settings == null)
+            if (endPointManagerServiceConnection == null)
                 SetRegisteredEndPoints(sb.ToString());
             else
-                SendAndReceiveEPM(sb.ToString(), settings.GetClient());
+                endPointManagerServiceConnection.SendAndReceiveEPM(sb.ToString());
         }
         /// <summary>
         /// Set endpoints to the registery.
@@ -208,33 +208,6 @@ namespace SizingServers.IPC {
 
                 _namedMutex.ReleaseMutex();
             }
-        }
-
-        /// <summary>
-        /// Get the endpoints from the endpoint manager service.
-        /// </summary>
-        /// <param name="client"></param>
-        /// <param name="message">Empty string to get the end points or the end point represeted as a string to set them.</param>
-        /// <returns></returns>
-        private static string SendAndReceiveEPM(string message, TcpClient client) {
-            //Serialize message
-            byte[] messageBytes = Shared.GetBytes(message);
-            byte[] messageSizeBytes = Shared.GetBytes(messageBytes.LongLength);
-            byte[] bytes = new byte[messageSizeBytes.LongLength + messageBytes.LongLength];
-
-            long pos = 0L;
-            messageSizeBytes.CopyTo(bytes, pos);
-            pos += messageSizeBytes.LongLength;
-            messageBytes.CopyTo(bytes, pos);
-
-            Stream str = client.GetStream();
-
-            Shared.WriteBytes(str, client.SendBufferSize, bytes);
-
-            int longSize = Marshal.SizeOf<long>();
-            long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
-
-            return Shared.GetString(Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize));
         }
 
         /// <summary>
