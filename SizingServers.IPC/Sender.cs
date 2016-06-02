@@ -7,8 +7,9 @@
  */
 
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -34,7 +35,7 @@ namespace SizingServers.IPC {
         public event EventHandler<ErrorEventArgs> OnSendFailed;
 
         private BinaryFormatter _bf;
-        private Dictionary<TcpClient, IPEndPoint> _tcpSenders;
+        private ConcurrentDictionary<TcpClient, IPEndPoint> _tcpSenders;
 
         private readonly object _lock = new object();
 
@@ -92,7 +93,7 @@ namespace SizingServers.IPC {
             Buffered = buffered;
             EndPointManagerServiceConnection = endPointManagerServiceConnection;
 
-            _tcpSenders = new Dictionary<TcpClient, IPEndPoint>();
+            _tcpSenders = new ConcurrentDictionary<TcpClient, IPEndPoint>();
             _bf = new BinaryFormatter();
         }
         /// <summary>
@@ -105,9 +106,10 @@ namespace SizingServers.IPC {
             lock (_lock)
                 try {
                     if (!IsDisposed) {
-                        BeforeMessageSent?.Invoke(this, new MessageEventArgs() { Message = message });
-
                         SetTcpSenders();
+
+                        BeforeMessageSent?.Invoke(this, new MessageEventArgs() { Handle = Handle, Message = message, RemoteEndPoints = _tcpSenders.Values.ToArray() });
+
                         if (_tcpSenders.Count != 0)
                             if (Buffered) {
                                 if (message.GetHashCode() != _hashcode) {
@@ -120,7 +122,7 @@ namespace SizingServers.IPC {
                                 Parallel.ForEach(_tcpSenders, (kvp) => Send(kvp.Key, kvp.Value, SerializeMessage(message)));
                             }
 
-                        AfterMessageSent?.Invoke(this, new MessageEventArgs() { Message = message });
+                        AfterMessageSent?.Invoke(this, new MessageEventArgs() { Handle = Handle, Message = message, RemoteEndPoints = _tcpSenders.Values.ToArray() });
                     }
                 }
                 catch (Exception ex) {
@@ -165,18 +167,18 @@ namespace SizingServers.IPC {
         /// Clean up the stored tcp clients (_senders) and add new ones if need be.
         /// </summary>
         private void SetTcpSenders() {
-            var newSenders = new Dictionary<TcpClient, IPEndPoint>();
+            var newSenders = new ConcurrentDictionary<TcpClient, IPEndPoint>();
             foreach (IPEndPoint endPoint in EndPointManager.GetReceiverEndPoints(Handle, EndPointManagerServiceConnection)) {
                 bool senderFound = false;
                 foreach (TcpClient sender in _tcpSenders.Keys)
                     if (_tcpSenders[sender].Equals(endPoint)) {
-                        newSenders.Add(sender, endPoint);
+                        newSenders.TryAdd(sender, endPoint);
                         senderFound = true;
                         break;
                     }
 
                 if (!senderFound)
-                    newSenders.Add(new TcpClient(endPoint.AddressFamily), endPoint);
+                    newSenders.TryAdd(new TcpClient(endPoint.AddressFamily), endPoint);
             }
 
             foreach (TcpClient oldSender in _tcpSenders.Keys) {
@@ -195,8 +197,12 @@ namespace SizingServers.IPC {
 
         private void Send(TcpClient sender, IPEndPoint endPoint, byte[] bytes) {
             try {
-                if (!sender.Connected)
+                if (!sender.Connected) {
                     try {
+                        _tcpSenders.TryRemove(sender, out endPoint);
+                        sender = new TcpClient(endPoint.AddressFamily); //Not always necessary, but ensures that connecting works if the receiver comes back up after it disappeared.
+                        _tcpSenders.TryAdd(sender, endPoint);
+
                         var result = sender.BeginConnect(endPoint.Address, endPoint.Port, null, null);
                         result.AsyncWaitHandle.WaitOne(10000);
 
@@ -207,13 +213,18 @@ namespace SizingServers.IPC {
                     }
                     catch {
                         //The receiver is not available anymore.
+                        _tcpSenders.TryRemove(sender, out endPoint);
                         return;
                     }
+                }
 
                 Shared.WriteBytes(sender.GetStream(), sender.SendBufferSize, bytes);
 
             }
             catch (Exception ex) {
+                //The receiver is not available anymore.
+                _tcpSenders.TryRemove(sender, out endPoint);
+
                 if (!IsDisposed && OnSendFailed != null) OnSendFailed(this, new ErrorEventArgs(ex));
             }
         }

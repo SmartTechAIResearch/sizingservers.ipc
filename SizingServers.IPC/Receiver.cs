@@ -10,7 +10,6 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 
@@ -115,25 +114,24 @@ namespace SizingServers.IPC {
         private void HandleReceive(TcpClient client) {
             ThreadPool.QueueUserWorkItem((state) => {
                 try {
-                    while (!IsDisposed) {
+                    while (!IsDisposed && client != null && client.Connected) {
                         Stream str = client.GetStream();
-                        int longSize = Marshal.SizeOf<long>();
 
-                        long handleSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
+                        long handleSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, Shared.LONGSIZE));
                         string handle = Shared.GetString(Shared.ReadBytes(str, client.ReceiveBufferSize, handleSize));
 
                         if (handle == Handle) {
                             bool messageIsByteArray = Shared.GetBool(Shared.ReadBytes(str, client.ReceiveBufferSize, 1));
-                            long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
+                            long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, Shared.LONGSIZE));
 
                             byte[] messageBytes = Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize);
 
                             object message = messageIsByteArray ? messageBytes : Shared.GetObject(messageBytes, _bf);
 
-                            MessageReceived?.Invoke(this, new MessageEventArgs() { Message = message });
+                            MessageReceived?.Invoke(this, new MessageEventArgs() { Handle = Handle, Message = message });
                         }
                         else {
-                            //Invalid sender. Close the connection.
+                            //Invalid sender or ping from EPM service. Close the connection.
                             client.Dispose();
                         }
                     }

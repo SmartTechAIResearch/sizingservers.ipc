@@ -10,11 +10,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Text;
 using System.Threading;
@@ -161,8 +159,8 @@ namespace SizingServers.IPC.EndPointManagerService {
                 try {
                     while (!_isDisposed) {
                         Stream str = client.GetStream();
-                        int longSize = Marshal.SizeOf<long>();
-                        long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
+
+                        long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, Shared.LONGSIZE));
                         byte[] messageBytes = Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize);
                         string message = MessageFromBytes(messageBytes);
 

@@ -24,6 +24,11 @@ namespace SizingServers.IPC {
         public const int EPMS_DEFAULT_TCP_PORT = 4455;
 
         /// <summary>
+        /// The amount of memory, in bytes, a 64bit integer takes. (Should be obvious :))
+        /// </summary>
+        public static readonly int LONGSIZE = Marshal.SizeOf<long>();
+
+        /// <summary>
         /// UTF8
         /// </summary>
         /// <param name="s"></param>
@@ -165,7 +170,6 @@ namespace SizingServers.IPC {
             var alg = Rijndael.Create();
             alg.Key = key;
             alg.IV = IV;
-            //alg.Padding = PaddingMode.None;
 
             var cs = new CryptoStream(ms, alg.CreateEncryptor(), CryptoStreamMode.Write);
             cs.Write(toEncrypt, 0, toEncrypt.Length);
@@ -189,7 +193,6 @@ namespace SizingServers.IPC {
             var alg = Rijndael.Create();
             alg.Key = Key;
             alg.IV = IV;
-            //alg.Padding = PaddingMode.None;
 
             var cs = new CryptoStream(ms, alg.CreateDecryptor(), CryptoStreamMode.Write);
             cs.Write(toDecrypt, 0, toDecrypt.Length);
@@ -197,7 +200,7 @@ namespace SizingServers.IPC {
                 cs.Close();
             }
             catch {
-                //Don't care.
+                //Don't care. Stuff is deserialized correctly, even if this fails.
             }
             return ms.ToArray();
         }

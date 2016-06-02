@@ -55,8 +55,6 @@ namespace SizingServers.IPC {
                 _client = new TcpClient(EndPointManagerServiceEP.AddressFamily);
                 var result = _client.BeginConnect(EndPointManagerServiceEP.Address, EndPointManagerServiceEP.Port, null, null);
 
-                _client.Connect(EndPointManagerServiceEP);
-
                 result.AsyncWaitHandle.WaitOne(10000);
 
                 if (!_client.Connected)
@@ -90,8 +88,7 @@ namespace SizingServers.IPC {
 
             Shared.WriteBytes(str, client.SendBufferSize, bytes);
 
-            int longSize = Marshal.SizeOf<long>();
-            long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, longSize));
+            long messageSize = Shared.GetLong(Shared.ReadBytes(str, client.ReceiveBufferSize, Shared.LONGSIZE));
 
             return MessageFromBytes(Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize));
         }

@@ -13,6 +13,7 @@ using System.Timers;
 namespace SizingServers.IPC.TestSender {
     class Program {
         static Sender _sender;
+        static int _count;
         static void Main(string[] args) {
             Console.Title = "SizingServers.Message.TestSender";
             Console.WriteLine("A message is sent every second to all receivers.");
@@ -37,7 +38,9 @@ namespace SizingServers.IPC.TestSender {
         private static void _sender_AfterMessageSent(object sender, MessageEventArgs e) {
             object message = e.Message;
             if (message is byte[]) message = System.Text.Encoding.UTF8.GetString(message as byte[]);
-            Console.WriteLine("'" + message + "'sent");
+            string s = "'" + message + "' sent";
+            if (e.RemoteEndPoints.Length == 0) s += ", but no receivers found";
+            Console.WriteLine(s);
         }
         private static void _sender_OnSendFailed(object sender, System.IO.ErrorEventArgs e) {
             Console.WriteLine(e.GetException());
@@ -45,7 +48,7 @@ namespace SizingServers.IPC.TestSender {
 
         private static void Tmr_Elapsed(object sender, ElapsedEventArgs e) {
             //(sender as Timer).Stop();
-            _sender.Send("Foo");
+            _sender.Send("Foo" + (++_count));
             //_sender.Send(System.Text.Encoding.UTF8.GetBytes("FooBytes"));
         }
     }
