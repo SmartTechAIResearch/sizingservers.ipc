@@ -15,7 +15,7 @@ namespace SizingServers.IPC.TestReceiver {
         static void Main(string[] args) {
             Console.Title = "SizingServers.Message.TestReceiver";
             Console.WriteLine("Messages are received from TestSender.");
-
+            
             //var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT));
             var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT), "password", new byte[] { 0x01, 0x02, 0x03 });
 

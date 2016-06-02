@@ -65,8 +65,9 @@ namespace SizingServers.IPC {
 
         /// <summary>
         /// <para>Add a new Sender in the code of the process you want to send messages. Make sure the handles matches the one of the Receivers.</para>
-        /// <para>When using the end point manager service, use Shared.Encrypt(...) (and Shared.Decrypt(...)) to encrypt messages before sending them.</para>
-        /// <para>Alternatively you can use an ssh tunnel, that will probably be safer and faster</para>
+        /// <para>When using the end point manager service, some security measures are advised.</para>
+        /// <para>You can use Shared.Encrypt(...) (and Shared.Decrypt(...)) to encrypt messages (if they are strings) before sending them.</para>
+        /// <para>Alternatively you can use a ssh tunnel, that will probably be safer and faster</para>
         /// <para>Suscribe to OnSendFailed for error handeling. Please not Sending will always fail when a Receiver disappears.</para>
         /// </summary>
         /// <param name="handle">

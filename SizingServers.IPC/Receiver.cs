@@ -8,6 +8,7 @@
 
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -37,6 +38,11 @@ namespace SizingServers.IPC {
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </summary>
         public string Handle { get; private set; }
+
+        /// <summary>
+        /// The end point this receiver is listening on.
+        /// </summary>
+        public EndPoint LocalEndPoint { get { return _tcpReceiver?.LocalEndpoint; } }
         /// <summary>
         /// <para>This is an optional parameter in the constructor.</para>
         /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
@@ -46,8 +52,9 @@ namespace SizingServers.IPC {
 
         /// <summary>
         /// <para>Receives messages of a Sender having the same handle.</para>
-        /// <para>When using the end point manager service, use Shared.Encrypt(...) (and Shared.Decrypt(...)) to encrypt your received messages via the MessageReceived event.</para>
-        /// <para>Alternatively you can use an ssh tunnel, that will probably be safer and faster</para>
+        /// <para>When using the end point manager service, some security measures are advised.</para>
+        /// <para>You can use Shared.Encrypt(...) (and Shared.Decrypt(...)) to encrypt your received messages (if they are strings) via the MessageReceived event.</para>
+        /// <para>Alternatively you can use a ssh tunnel, that will probably be safer and faster</para>
         /// </summary>
         /// <param name="handle">
         /// <para>The handle is a value shared by a Sender and its Receivers.  , * + and - cannot be used!</para>
