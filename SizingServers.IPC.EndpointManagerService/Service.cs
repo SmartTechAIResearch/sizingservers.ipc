@@ -20,7 +20,9 @@ using System.Threading.Tasks;
 
 namespace SizingServers.IPC.EndPointManagerService {
     /// <summary>
-    /// Serves at storing and providing receiver end points so communication between senders and receivers can be established.
+    /// <para>Serves at storing and providing receiver end points so communication between senders and receivers can be established.</para>
+    /// <para>Unresponsive end points are cleaned every minute.</para>
+    /// <para>Errors and status messages are written to the Windows Event Log (Event Viewer).</para>
     /// </summary>
     public partial class Service : ServiceBase {
         private readonly object _lock = new object();
@@ -40,8 +42,11 @@ namespace SizingServers.IPC.EndPointManagerService {
         private System.Timers.Timer _cleanupTimer = new System.Timers.Timer(60000);
 
         /// <summary>
-        /// Serves at storing and providing receiver end points so communication between senders and receivers can be established.
+        /// <para>Serves at storing and providing receiver end points so communication between senders and receivers can be established.</para>
+        /// <para>Unresponsive end points are cleaned every minute.</para>
+        /// <para>Errors and status messages are written to the Windows Event Log (Event Viewer).</para>
         /// </summary>
+        /// <param name="args">0: tcp port to listen on, 1: password, 2: salt. LAst two are optional (Rijndael encryption of communication). Salt -> a textual representation of a byte array. Example: "{0x01,0x02,0x03}"</param>
         public Service(string[] args) {
             InitializeComponent();
             eventLog.Source = ServiceName;
@@ -113,7 +118,7 @@ namespace SizingServers.IPC.EndPointManagerService {
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="args"></param>
+        /// <param name="args">0: tcp port to listen on, 1: password, 2: salt. LAst two are optional (Rijndael encryption of communication). Salt -> a textual representation of a byte array. Example: "{0x01,0x02,0x03}"</param>
         protected override void OnStart(string[] args) {
             HandleArgs(args);
 

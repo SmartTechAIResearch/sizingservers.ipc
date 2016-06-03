@@ -27,6 +27,18 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_84D268F4FE204560A67E6118F4CDCD65"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E22FB39D2D424EECB95C5C4348E21B28"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_UNDEFINED"
         "OwnerKey" = "8:_630DF96D23C9406BB9D9B189B09A4FB0"
         "MsmSig" = "8:_UNDEFINED"
@@ -167,6 +179,11 @@
             "AssemblyAsmDisplayName" = "8:SizingServers.IPC, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
+                    "_68A5E781EC0DD444D5DFEFCC2C691DA5"
+                    {
+                    "Name" = "8:SizingServers.IPC.dll"
+                    "Attributes" = "3:512"
+                    }
                 }
             "SourcePath" = "8:SizingServers.IPC.dll"
             "TargetName" = "8:"
@@ -186,6 +203,46 @@
             "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_84D268F4FE204560A67E6118F4CDCD65"
+            {
+            "SourcePath" = "8:Start SizingServers.IPC.EndPointManagerService + README.cmd"
+            "TargetName" = "8:Start SizingServers.IPC.EndPointManagerService + README.cmd"
+            "Tag" = "8:"
+            "Folder" = "8:_F79D39971AA248E285255D3F30E304AD"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E22FB39D2D424EECB95C5C4348E21B28"
+            {
+            "SourcePath" = "8:Stop SizingServers.IPC.EndPointManagerService.cmd"
+            "TargetName" = "8:Stop SizingServers.IPC.EndPointManagerService.cmd"
+            "Tag" = "8:"
+            "Folder" = "8:_F79D39971AA248E285255D3F30E304AD"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
         }
         "FileType"
         {
@@ -201,6 +258,17 @@
             "Property" = "8:ProgramMenuFolder"
                 "Folders"
                 {
+                    "{9EF0B969-E518-4E46-987F-47570745A589}:_E5CD06D84969420BA925223F591B8789"
+                    {
+                    "Name" = "8:Sizing Servers"
+                    "AlwaysCreate" = "11:FALSE"
+                    "Condition" = "8:"
+                    "Transitive" = "11:FALSE"
+                    "Property" = "8:_37A0303FE82F44B8879E205D225AEDF3"
+                        "Folders"
+                        {
+                        }
+                    }
                 }
             }
             "{1525181F-901A-416C-8A58-119130FE478E}:_8AF7DE24E87D47AA97DBE5493253A5E7"
@@ -218,7 +286,7 @@
             {
             "DefaultLocation" = "8:[ProgramFilesFolder][Manufacturer]\\[ProductName]"
             "Name" = "8:#1925"
-            "AlwaysCreate" = "11:FALSE"
+            "AlwaysCreate" = "11:TRUE"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Property" = "8:TARGETDIR"
@@ -243,7 +311,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:SizingServers.IPC.EndPointManagerService"
         "ProductCode" = "8:{0A72F5B1-9D55-492B-B8D7-8DDDFA1D1ED8}"
-        "PackageCode" = "8:{7D93C735-B363-48B1-8901-4CC3D5B8B2F7}"
+        "PackageCode" = "8:{89AB76A7-1AF2-4E97-A9E9-2B17288E9CE6}"
         "UpgradeCode" = "8:{F5878213-1E36-4546-A41A-229DEE4AD280}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
@@ -363,6 +431,20 @@
         }
         "Shortcut"
         {
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_81F481F5F6AF49418AE6BBAB2FF36705"
+            {
+            "Name" = "8:SizingServers.IPC.EndPointManagerService Folder"
+            "Arguments" = "8:"
+            "Description" = "8:"
+            "ShowCmd" = "3:1"
+            "IconIndex" = "3:0"
+            "Transitive" = "11:FALSE"
+            "Target" = "8:_F79D39971AA248E285255D3F30E304AD"
+            "Folder" = "8:_E5CD06D84969420BA925223F591B8789"
+            "WorkingFolder" = "8:_F79D39971AA248E285255D3F30E304AD"
+            "Icon" = "8:"
+            "Feature" = "8:"
+            }
         }
         "UserInterface"
         {
