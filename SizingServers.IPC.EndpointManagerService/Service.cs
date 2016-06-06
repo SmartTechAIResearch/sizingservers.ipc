@@ -8,7 +8,6 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -47,7 +46,7 @@ namespace SizingServers.IPC.EndPointManagerService {
         /// <para>Unresponsive end points are cleaned every minute.</para>
         /// <para>Errors and status messages are written to the Windows Event Log (Event Viewer).</para>
         /// </summary>
-        /// <param name="args">0: tcp port to listen on, 1: password, 2: salt. LAst two are optional (Rijndael encryption of communication). Salt -> a textual representation of a byte array. Example: "{0x01,0x02,0x03}"</param>
+        /// <param name="args">0: tcp port to listen on, 1: password, 2: salt. Last two are optional (Rijndael encryption of communication). Salt -> a textual representation of a byte array. Example: "{0x01,0x02,0x03}"</param>
         public Service(string[] args) {
             InitializeComponent();
             eventLog.Source = ServiceName;
@@ -108,7 +107,7 @@ namespace SizingServers.IPC.EndPointManagerService {
                         bytes[i] = Convert.ToByte(split[i].Trim().Substring(2), 16);
                     }
                     catch {
-                        eventLog.WriteEntry("Failed parsing the salt from the startup arguments. Reverting to unencrypted traffic", EventLogEntryType.Warning);
+                        eventLog.WriteEntry("Failed parsing the salt from the startup arguments. Reverting to unencrypted traffic.", EventLogEntryType.Warning);
                         return null;
                     }
                 }
@@ -119,7 +118,7 @@ namespace SizingServers.IPC.EndPointManagerService {
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="args">0: tcp port to listen on, 1: password, 2: salt. LAst two are optional (Rijndael encryption of communication). Salt -> a textual representation of a byte array. Example: "{0x01,0x02,0x03}"</param>
+        /// <param name="args">0: tcp port to listen on, 1: password, 2: salt. Last two are optional (Rijndael encryption of communication). Salt -> a textual representation of a byte array. Example: "{0x01,0x02,0x03}"</param>
         protected override void OnStart(string[] args) {
             HandleArgs(args);
 
@@ -209,7 +208,7 @@ namespace SizingServers.IPC.EndPointManagerService {
         }
 
         /// <summary>
-        /// Cleanup end points that are not in use anymore.
+        /// Cleanup end points that are not in use anymore, every minute.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>

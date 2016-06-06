@@ -88,6 +88,8 @@ namespace SizingServers.IPC {
         /// </param>
         public Sender(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection = null, bool buffered = false) {
             if (string.IsNullOrWhiteSpace(handle)) throw new ArgumentNullException(handle);
+            if (handle.Contains(";") || handle.Contains(",") || handle.Contains("*") || handle.Contains("+") || handle.Contains("-"))
+                throw new ArgumentNullException(handle);
 
             Handle = handle;
             Buffered = buffered;

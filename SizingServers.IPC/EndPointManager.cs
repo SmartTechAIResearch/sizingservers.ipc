@@ -21,7 +21,7 @@ namespace SizingServers.IPC {
     /// </summary>
     internal static class EndPointManager {
         /// <summary>
-        /// Used for a key in the Windows Registry (current user) to store the end points when not using an end point manager service.
+        /// Used for a key in the Windows Registry (current user, volatile) to store the end points when not using an end point manager service.
         /// </summary>
         public const string WINDOWS_REGISTRY_KEY = "SizingServers.IPC{8B20C7BD-634B-408D-B337-732644177389}";
 
@@ -37,7 +37,7 @@ namespace SizingServers.IPC {
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
         /// <param name="ipAddressToRegister">
-        /// <para>This parameter is only applicable if you are using an end point manager service.</para>
+        /// <para>This parameter is only useful if you are using an end point manager service.</para>
         /// <para>A receiver listens to all available IPs for connections. The ip that is registered on the end point manager (service) is by default automatically determined.</para>
         /// <para>However, this does not take into account that senders, receiver or end point manager services are possibly not on the same network.</para>
         /// <para>Therefor you can override this behaviour by supplying your own IP that will be registered to the end point manager service.</para>
@@ -96,6 +96,8 @@ namespace SizingServers.IPC {
             var endPoints = new List<IPEndPoint>();
 
             var allEndPoints = GetRegisteredEndPoints(endPointManagerServiceConnection);
+
+            //Only cleanup if there is no epm service.
             if (endPointManagerServiceConnection == null) CleanupEndPoints(allEndPoints, true);
 
             if (allEndPoints.ContainsKey(handle)) {
@@ -153,7 +155,7 @@ namespace SizingServers.IPC {
         private static string GetRegisteredEndPoints() {
             string endPoints = string.Empty;
             if (_namedMutex.WaitOne()) {
-                RegistryKey subKey = Registry.CurrentUser.OpenSubKey("Software\\" + EndPointManager.WINDOWS_REGISTRY_KEY);
+                RegistryKey subKey = Registry.CurrentUser.OpenSubKey("Software\\" + WINDOWS_REGISTRY_KEY);
                 if (subKey != null)
                     endPoints = subKey.GetValue("EndPoints") as string;
 
@@ -194,7 +196,7 @@ namespace SizingServers.IPC {
         }
 
         /// <summary>
-        /// Set endpoints to the Windows Registry (current user) or the end point manager service, if any.
+        /// Set endpoints to the Windows Registry (current user, volatile) or the end point manager service, if any.
         /// </summary>
         /// <param name="endPoints"></param>
         /// <param name="endPointManagerServiceConnection"></param>
@@ -225,12 +227,12 @@ namespace SizingServers.IPC {
                 endPointManagerServiceConnection.SendAndReceiveEPM(sb.ToString());
         }
         /// <summary>
-        /// Set endpoints to the Windows Registry (current user).
+        /// Set endpoints to the Windows Registry (current user, volatile).
         /// </summary>
         /// <param name="endPoints"></param>
         private static void SetRegisteredEndPoints(string endPoints) {
             if (_namedMutex.WaitOne()) {
-                RegistryKey subKey = Registry.CurrentUser.CreateSubKey("Software\\" + EndPointManager.WINDOWS_REGISTRY_KEY, RegistryKeyPermissionCheck.ReadWriteSubTree, RegistryOptions.Volatile);
+                RegistryKey subKey = Registry.CurrentUser.CreateSubKey("Software\\" + WINDOWS_REGISTRY_KEY, RegistryKeyPermissionCheck.ReadWriteSubTree, RegistryOptions.Volatile);
                 subKey.SetValue("EndPoints", endPoints, RegistryValueKind.String);
 
                 _namedMutex.ReleaseMutex();

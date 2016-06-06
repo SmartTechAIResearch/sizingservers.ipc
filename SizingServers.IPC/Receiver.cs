@@ -62,7 +62,7 @@ namespace SizingServers.IPC {
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
         /// <param name="ipAddressToRegister">
-        /// <para>This parameter is only applicable if you are using an end point manager service.</para>
+        /// <para>This parameter is only useful if you are using an end point manager service.</para>
         /// <para>A receiver listens to all available IPs for connections. The ip that is registered on the end point manager (service) is by default automatically determined.</para>
         /// <para>However, this does not take into account that senders, receiver or end point manager services are possibly not on the same network.</para>
         /// <para>Therefor you can override this behaviour by supplying your own IP that will be registered to the end point manager service.</para>
@@ -78,10 +78,14 @@ namespace SizingServers.IPC {
         /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
         /// </param>
         public Receiver(string handle, IPAddress ipAddressToRegister = null, int[] allowedPorts = null, EndPointManagerServiceConnection endPointManagerServiceConnection = null) {
+            if (string.IsNullOrWhiteSpace(handle)) throw new ArgumentNullException(handle);
+            if (handle.Contains(";") || handle.Contains(",") || handle.Contains("*") || handle.Contains("+") || handle.Contains("-"))
+                throw new ArgumentNullException(handle);
+
             Handle = handle;
             EndPointManagerServiceConnection = endPointManagerServiceConnection;
 
-            for (int i = 1; i != 21; i++) //Try 20 times, for when the same port is chosen by multiple applications.
+            for (int i = 1; i != 21; i++) //Try 20 times, for when the same port is chosen by another application.
                 try {
                     _tcpReceiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, ipAddressToRegister, allowedPorts, EndPointManagerServiceConnection));
                     _tcpReceiver.Start(endPointManagerServiceConnection == null ? 1 : 2); //Keep one connection open to enable the service pinging it.

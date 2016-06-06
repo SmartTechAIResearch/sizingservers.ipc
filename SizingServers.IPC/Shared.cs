@@ -152,11 +152,11 @@ namespace SizingServers.IPC {
         }
 
         /// <summary>
-        /// 
+        /// Read bytes from a stream.
         /// </summary>
         /// <param name="str"></param>
-        /// <param name="bufferSize"></param>
-        /// <param name="length"></param>
+        /// <param name="bufferSize">The amount of bytes read per go. This could be the receive buffer size of a socket.</param>
+        /// <param name="length">The total amount of bytes that should be read.</param>
         /// <returns></returns>
         public static byte[] ReadBytes(Stream str, int bufferSize, long length) {
             var bytes = new byte[length];
@@ -176,10 +176,10 @@ namespace SizingServers.IPC {
             return bytes;
         }
         /// <summary>
-        /// 
+        /// Write bytes to a stream.
         /// </summary>
         /// <param name="str"></param>
-        /// <param name="bufferSize"></param>
+        /// <param name="bufferSize">The amount of bytes to write per go. This could be the send buffer size of a socket.</param>
         /// <param name="bytes"></param>
         public static void WriteBytes(Stream str, int bufferSize, byte[] bytes) {
             int offset = 0;
@@ -249,7 +249,7 @@ namespace SizingServers.IPC {
         }
 
         /// <summary>
-        /// Return the v4 and the v6 IPs of the local machine.
+        /// Return the v4 and the v6 IPs of the local machine (no loopbacks). Use this instead of Dns.GetHostEntry etc. These Dns fxs do not always work. 
         /// </summary>
         public static List<IPAddress> GetIPs() {
             var ips = new List<IPAddress>();
