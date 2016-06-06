@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.ServiceProcess;
 using System.Text;
 using System.Threading;
@@ -199,7 +200,7 @@ namespace SizingServers.IPC.EndPointManagerService {
 
         private string MessageFromBytes(byte[] messageBytes) {
             string message = Shared.GetString(messageBytes);
-            if (_password != null) message =  Shared.Decrypt(message, _password, _salt);
+            if (_password != null) message = Shared.Decrypt(message, _password, _salt);
             return message;
         }
         private byte[] MessageToBytes(string message) {
@@ -218,44 +219,46 @@ namespace SizingServers.IPC.EndPointManagerService {
                     int equals = 1;
 
                     var endPoints = DeserializeEndPoints();
-                    var newEndPoints = new ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>>(); ;
+                    var newEndPoints = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentBag<int>>>(); ;
                     Parallel.ForEach(endPoints.Keys, (handle, loopState) => {
                         if (_isDisposed) loopState.Break();
 
-                        var kvp = endPoints[handle];
+                        var ipDic = endPoints[handle];
+                        foreach(string ip in ipDic.Keys) {
+                            IPAddress ipAddress = IPAddress.Parse(ip);
 
-                        IPAddress ipAddress = null;
-                        foreach (var ipCandidate in Dns.GetHostEntry(kvp.Key).AddressList) {
-                            if (_isDisposed) loopState.Break();
-                            if (!ipCandidate.Equals(IPAddress.Loopback) && !ipCandidate.Equals(IPAddress.IPv6Loopback) &&
-                                    (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6)) {
-                                ipAddress = ipCandidate;
-                                break;
+                            if (ipAddress != null) {
+                                Parallel.ForEach(ipDic[ip], (port, loopState2) => {
+                                    if (_isDisposed) loopState2.Break();
+
+                                    using (var client = new TcpClient(ipAddress.AddressFamily)) {
+                                        var result = client.BeginConnect(ipAddress, port, null, null);
+
+                                        result.AsyncWaitHandle.WaitOne(10000);
+                                        if (client.Connected) {
+                                            client.EndConnect(result);
+
+                                            newEndPoints.TryAdd(handle, new ConcurrentDictionary<string, ConcurrentBag<int>>());
+                                            newEndPoints[handle].TryAdd(ip, new ConcurrentBag<int>());
+                                            newEndPoints[handle][ip].Add(port);
+                                        }
+                                        else {
+                                            int errorCode = -1;
+                                            try {
+                                                errorCode = (int)result.GetType().GetProperty("ErrorCode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(result);
+                                            }
+                                            catch { }
+                                            if (errorCode != -1) 
+                                                eventLog.WriteEntry("Connection to " + ip + ":" + port + "failed with error code " + errorCode + "! Please check the firewall settings of all machines involved and if they are all on the same network.");
+                                            
+                                            Interlocked.Exchange(ref equals, 0);
+                                        }
+                                    }
+                                });
                             }
-                        }
-
-                        if (ipAddress != null) {
-                            Parallel.ForEach(kvp.Value, (port, loopState2) => {
-                                if (_isDisposed) loopState2.Break();
-
-                                using (var client = new TcpClient(ipAddress.AddressFamily)) {
-                                    var result = client.BeginConnect(ipAddress, port, null, null);
-
-                                    result.AsyncWaitHandle.WaitOne(10000);
-                                    if (client.Connected) {
-                                        client.EndConnect(result);
-
-                                        newEndPoints.TryAdd(handle, new KeyValuePair<string, ConcurrentBag<int>>(kvp.Key, new ConcurrentBag<int>()));
-                                        newEndPoints[handle].Value.Add(port);
-                                    }
-                                    else {
-                                        Interlocked.Exchange(ref equals, 0);
-                                    }
-                                }
-                            });
-                        }
-                        else {
-                            Interlocked.Exchange(ref equals, 0);
+                            else {
+                                Interlocked.Exchange(ref equals, 0);
+                            }
                         }
                     });
 
@@ -264,45 +267,54 @@ namespace SizingServers.IPC.EndPointManagerService {
                 }
         }
 
-        private ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>> DeserializeEndPoints() {
-            var endPointsDic = new ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>>();
+        private ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentBag<int>>> DeserializeEndPoints() {
+            var endPointsDic = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentBag<int>>>();
 
             if (_registeredEndPoints.Length != 0) {
-                string[] split = _registeredEndPoints.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string token in split) {
-                    string[] kvp = token.Split(new char[] { '*' }, StringSplitOptions.RemoveEmptyEntries);
-                    string handle = kvp[0];
+                string[] handleKvps = _registeredEndPoints.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string token1 in handleKvps) {
+                    string[] handleKvp = token1.Split(new char[] { '*' }, StringSplitOptions.RemoveEmptyEntries);
+                    string handle = handleKvp[0];
 
-                    string[] kvpConnection = kvp[1].Split(new char[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
-                    string hostname = kvpConnection[0];
-                    var ports = kvpConnection[1].Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] ipKvps = handleKvp[1].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string token2 in ipKvps) {
+                        string[] ipKvp = token2.Split(new char[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+                        string ip = ipKvp[0];
+                        var ports = ipKvp[1].Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
 
-                    var hs = new ConcurrentBag<int>();
-                    foreach (string port in ports)
-                        hs.Add(int.Parse(port));
 
-                    endPointsDic.TryAdd(handle, new KeyValuePair<string, ConcurrentBag<int>>(hostname, hs));
+                        endPointsDic.TryAdd(handle, new ConcurrentDictionary<string, ConcurrentBag<int>>());
+                        endPointsDic[handle].TryAdd(ip, new ConcurrentBag<int>());
+
+                        var bag = endPointsDic[handle][ip];
+                        foreach (string port in ports)
+                            bag.Add(int.Parse(port));
+
+                    }
                 }
             }
 
             return endPointsDic;
         }
-        private void SerializeEndPoints(ConcurrentDictionary<string, KeyValuePair<string, ConcurrentBag<int>>> endPointsDic) {
+        private void SerializeEndPoints(ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentBag<int>>> endPointsDic) {
             var sb = new StringBuilder();
             foreach (string handle in endPointsDic.Keys) {
                 sb.Append(handle);
                 sb.Append('*');
 
-                var kvpConnection = endPointsDic[handle];
-                sb.Append(kvpConnection.Key);
-                sb.Append('-');
+                var ips = endPointsDic[handle];
+                foreach (string ip in ips.Keys) {
+                    sb.Append(ip);
+                    sb.Append('-');
 
-                foreach (int port in kvpConnection.Value) {
-                    sb.Append(port);
-                    sb.Append('+');
+                    foreach (int port in ips[ip]) {
+                        sb.Append(port);
+                        sb.Append('+');
+                    }
+
+                    sb.Append(',');
                 }
-
-                sb.Append(',');
+                sb.Append(';');
             }
 
             _registeredEndPoints = sb.ToString();

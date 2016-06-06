@@ -10,6 +10,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace SizingServers.IPC {
@@ -57,8 +58,16 @@ namespace SizingServers.IPC {
 
                 result.AsyncWaitHandle.WaitOne(10000);
 
-                if (!_client.Connected)
-                    throw new EndPointManagerServiceConnectionException("Could not connect to the end point manager service " + EndPointManagerServiceEP.Address + ":" + EndPointManagerServiceEP.Port + ".");
+                if (!_client.Connected) {
+                    int errorCode = -1;
+                    try {
+                        errorCode = (int)result.GetType().GetProperty("ErrorCode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(result);
+                    }
+                    catch { }
+
+                    throw new EndPointManagerServiceConnectionException("Could not connect to the end point manager service " + EndPointManagerServiceEP.Address + ":" + EndPointManagerServiceEP.Port +
+                        ". Error code " + errorCode + ". Please check the firewall settings of all machines involved and if they are all on the same network.");
+                }
 
                 _client.EndConnect(result);
             }

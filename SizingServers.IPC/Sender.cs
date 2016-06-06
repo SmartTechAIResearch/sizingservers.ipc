@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading.Tasks;
 
@@ -71,7 +72,7 @@ namespace SizingServers.IPC {
         /// <para>Suscribe to OnSendFailed for error handeling. Please note: Sending will always fail when a Receiver disappears.</para>
         /// </summary>
         /// <param name="handle">
-        /// <para>The handle is a value shared by a Sender and its Receivers.  , * + and - cannot be used!</para>
+        /// <para>The handle is a value shared by a Sender and its Receivers.  ; , * + and - cannot be used!</para>
         /// <para>It links both parties so messages from a Sender get to the right Receivers.</para>
         /// <para>Make sure this is a unique value: use a GUID for instance:</para>
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
@@ -96,7 +97,7 @@ namespace SizingServers.IPC {
             _bf = new BinaryFormatter();
         }
         /// <summary>
-        /// Send a message to the Receivers. This is a blocking function.
+        /// Send a message to the Receivers. This is (partly) a blocking function.
         /// </summary>
         /// <param name="message">
         /// If the given object is a byte array, it will not be serialized. Otherwise, the object will be serialized using a binary formatter.
@@ -205,8 +206,16 @@ namespace SizingServers.IPC {
                         var result = sender.BeginConnect(endPoint.Address, endPoint.Port, null, null);
                         result.AsyncWaitHandle.WaitOne(10000);
 
-                        if (!sender.Connected)
-                            throw new Exception("Could not connect to a receiver " + endPoint.Address + ":" + endPoint.Port + ".");
+                        if (!sender.Connected) {
+                            int errorCode = -1;
+                            try {
+                                errorCode = (int)result.GetType().GetProperty("ErrorCode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(result);
+                            }
+                            catch { }
+
+                            throw new Exception("Could not connect to a receiver " + endPoint.Address + ":" + endPoint.Port + 
+                                ". Error code " + errorCode + ". Please check the firewall settings of all machines involved and if they are all on the same network.");
+                        }
 
                         sender.EndConnect(result);
                     }

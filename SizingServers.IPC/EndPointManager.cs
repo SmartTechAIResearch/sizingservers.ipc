@@ -19,46 +19,59 @@ using System.Threading;
 
 namespace SizingServers.IPC {
     /// <summary>
-    /// Stores end points (handles and tcp ports) in the registry for the IPC message receivers.
+    /// Stores end points (handles and tcp ports) in the Windows Registry for the current user or in an end point manager service for the IPC message receivers.
     /// </summary>
     internal static class EndPointManager {
         /// <summary>
-        /// Used for a key in the registry to store the end points.
+        /// Used for a key in the Windows Registry (current user) to store the end points when not using an end point manager service.
         /// </summary>
-        public const string KEY = "SizingServers.IPC{8B20C7BD-634B-408D-B337-732644177389}";
+        public const string WINDOWS_REGISTRY_KEY = "SizingServers.IPC{8B20C7BD-634B-408D-B337-732644177389}";
 
-        private static Mutex _namedMutex = new Mutex(false, KEY);
+        private static Mutex _namedMutex = new Mutex(false, WINDOWS_REGISTRY_KEY);
 
         /// <summary>
-        /// Add a new port tot the endpoint for the receiver.
+        /// Add a new tcp port to the endpoints for a receiver.
         /// </summary>
         /// <param name="handle">
-        /// <para>The handle is a value shared by a Sender and its Receivers.</para>
+        /// <para>The handle is a value shared by a Sender and its Receivers.  ; , * + and - cannot be used!</para>
         /// <para>It links both parties so messages from a Sender get to the right Receivers.</para>
         /// <para>Make sure this is a unique value: use a GUID for instance:</para>
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
-        /// <param name="endPointManagerServiceConnection"></param>
+        /// <param name="ipAddressToRegister">
+        /// <para>This parameter is only applicable if you are using a end point manager service.</para>
+        /// <para>A receiver listens to all available IPs for connections. The ip that is registered on the end point manager (service) is by default automatically determined.</para>
+        /// <para>However, this does not take into account that senders, receiver or end point manager services are possibly not on the same network.</para>
+        /// <para>Therefor you can override this behaviour by supplying your own IP that will be registered to the end point manager service.</para>
+        /// </param>
+        /// <param name="endPointManagerServiceConnection">
+        /// <para>This is an optional parameter.</para>
+        /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
+        /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
+        /// </param>
         /// <returns></returns>
-        public static IPEndPoint RegisterReceiver(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection) {
+        internal static IPEndPoint RegisterReceiver(string handle, IPAddress ipAddressToRegister, EndPointManagerServiceConnection endPointManagerServiceConnection) {
             if (string.IsNullOrWhiteSpace(handle)) throw new ArgumentNullException(handle);
 
             IPEndPoint endPoint = null;
 
-            IPAddress ipAddress = null;
-            foreach (var ipCandidate in Dns.GetHostEntry(IPAddress.Loopback).AddressList)
-                if (!ipCandidate.Equals(IPAddress.Loopback) && !ipCandidate.Equals(IPAddress.IPv6Loopback) &&
-                    (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6)) {
-                    ipAddress = ipCandidate;
-                    break;
-                }
+            if (ipAddressToRegister == null)
+                foreach (var ipCandidate in Shared.GetIPs())
+                    if (!ipCandidate.Equals(IPAddress.Loopback) && !ipCandidate.Equals(IPAddress.IPv6Loopback) &&
+                        (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6)) {
+                        ipAddressToRegister = ipCandidate;
+                        break;
+                    }
+
+            string ip = ipAddressToRegister.ToString();
 
             var endPoints = GetRegisteredEndPoints(endPointManagerServiceConnection);
             if (endPointManagerServiceConnection == null) CleanupEndPoints(endPoints, false);
-            if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(ipAddress.ToString(), new HashSet<int>()));
+            if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new Dictionary<string, HashSet<int>>());
+            if (!endPoints[handle].ContainsKey(ip)) endPoints[handle].Add(ip, new HashSet<int>());
 
-            endPoint = new IPEndPoint(ipAddress, GetAvailableTcpPort());
-            endPoints[handle].Value.Add(endPoint.Port);
+            endPoint = new IPEndPoint(ipAddressToRegister, GetAvailableTcpPort());
+            endPoints[handle][ip].Add(endPoint.Port);
             SetRegisteredEndPoints(endPoints, endPointManagerServiceConnection);
 
             return endPoint;
@@ -75,17 +88,19 @@ namespace SizingServers.IPC {
         /// </param>
         /// <param name="endPointManagerServiceConnection"></param>
         /// <returns></returns>
-        public static List<IPEndPoint> GetReceiverEndPoints(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection) {
+        internal static List<IPEndPoint> GetReceiverEndPoints(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection) {
             var endPoints = new List<IPEndPoint>();
 
             var allEndPoints = GetRegisteredEndPoints(endPointManagerServiceConnection);
             if (endPointManagerServiceConnection == null) CleanupEndPoints(allEndPoints, true);
 
             if (allEndPoints.ContainsKey(handle)) {
-                var kvpConnection = allEndPoints[handle];
-                var ipAddress = IPAddress.Parse(kvpConnection.Key);
-                foreach (int port in kvpConnection.Value)
-                    endPoints.Add(new IPEndPoint(ipAddress, port));
+                var dic = allEndPoints[handle];
+                foreach (string ip in dic.Keys) {
+                    var ipAddress = IPAddress.Parse(ip);
+                    foreach (int port in dic[ip])
+                        endPoints.Add(new IPEndPoint(ipAddress, port));
+                }
             }
 
             return endPoints;
@@ -95,28 +110,33 @@ namespace SizingServers.IPC {
         /// </summary>
         /// <param name="endPointManagerServiceConnection"></param>
         /// <returns></returns>
-        private static Dictionary<string, KeyValuePair<string, HashSet<int>>> GetRegisteredEndPoints(EndPointManagerServiceConnection endPointManagerServiceConnection) {
-            var endPoints = new Dictionary<string, KeyValuePair<string, HashSet<int>>>();
+        private static Dictionary<string, Dictionary<string, HashSet<int>>> GetRegisteredEndPoints(EndPointManagerServiceConnection endPointManagerServiceConnection) {
+            var endPoints = new Dictionary<string, Dictionary<string, HashSet<int>>>();
 
             string value = endPointManagerServiceConnection == null ? GetRegisteredEndPoints() : endPointManagerServiceConnection.SendAndReceiveEPM(string.Empty);
             if (value.Length != 0) {
-                string[] split = value.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string token in split) {
-                    string[] kvp = token.Split(new char[] { '*' }, StringSplitOptions.RemoveEmptyEntries);
-                    string handle = kvp[0];
+                string[] handleKvps = value.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string token1 in handleKvps) {
+                    string[] handleKvp = token1.Split(new char[] { '*' }, StringSplitOptions.RemoveEmptyEntries);
+                    string handle = handleKvp[0];
 
-                    string[] kvpConnection = kvp[1].Split(new char[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
-                    string hostname = kvpConnection[0];
-                    var ports = kvpConnection[1].Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] ipKvps = handleKvp[1].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (string token2 in ipKvps) {
+                        string[] ipKvp = token2.Split(new char[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+                        string ip = ipKvp[0];
+                        var ports = ipKvp[1].Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
 
-                    var hs = new HashSet<int>();
-                    foreach (string port in ports)
-                        hs.Add(int.Parse(port));
+                        if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new Dictionary<string, HashSet<int>>());
+                        if (!endPoints[handle].ContainsKey(ip)) endPoints[handle].Add(ip, new HashSet<int>());
 
-                    endPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(hostname, hs));
+                        var hs = endPoints[handle][ip];
+                        foreach (string port in ports)
+                            hs.Add(int.Parse(port));
+                    }
                 }
             }
 
+            //The service, if any, handles the cleaning. Otherwise this must be done here.
             if (endPointManagerServiceConnection == null) CleanupEndPoints(endPoints, true);
 
             return endPoints;
@@ -129,7 +149,7 @@ namespace SizingServers.IPC {
         private static string GetRegisteredEndPoints() {
             string endPoints = string.Empty;
             if (_namedMutex.WaitOne()) {
-                RegistryKey subKey = Registry.CurrentUser.OpenSubKey("Software\\" + EndPointManager.KEY);
+                RegistryKey subKey = Registry.CurrentUser.OpenSubKey("Software\\" + EndPointManager.WINDOWS_REGISTRY_KEY);
                 if (subKey != null)
                     endPoints = subKey.GetValue("EndPoints") as string;
 
@@ -143,25 +163,25 @@ namespace SizingServers.IPC {
         /// </summary>
         /// <param name="endPoints">All end points that are not used anymore are filtered out.</param>
         /// <param name="registerEndpoints">Register the cleaned end point is applicable.</param>
-        private static void CleanupEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, bool registerEndpoints) {
+        private static void CleanupEndPoints(Dictionary<string, Dictionary<string, HashSet<int>>> endPoints, bool registerEndpoints) {
             HashSet<int> usedPorts = GetUsedTcpPorts();
 
             bool equals = true;
-            var newEndPoints = new Dictionary<string, KeyValuePair<string, HashSet<int>>>();
+            var newEndPoints = new Dictionary<string, Dictionary<string, HashSet<int>>>();
             foreach (string handle in endPoints.Keys) {
-                var kvpConnection = endPoints[handle];
+                var dic = endPoints[handle];
+                foreach (string ip in dic.Keys)
+                    foreach (int port in dic[ip]) {
+                        if (usedPorts.Contains(port)) {
+                            if (!newEndPoints.ContainsKey(handle)) newEndPoints.Add(handle, new Dictionary<string, HashSet<int>>());
+                            if (!newEndPoints[handle].ContainsKey(ip)) newEndPoints[handle].Add(ip, new HashSet<int>());
 
-                foreach (int port in kvpConnection.Value) {
-                    if (usedPorts.Contains(port)) {
-                        if (!newEndPoints.ContainsKey(handle))
-                            newEndPoints.Add(handle, new KeyValuePair<string, HashSet<int>>(kvpConnection.Key, new HashSet<int>()));
-
-                        newEndPoints[handle].Value.Add(port);
+                            newEndPoints[handle][ip].Add(port);
+                        }
+                        else {
+                            equals = false;
+                        }
                     }
-                    else {
-                        equals = false;
-                    }
-                }
             }
             if (registerEndpoints && !equals) {
                 endPoints = newEndPoints;
@@ -170,26 +190,29 @@ namespace SizingServers.IPC {
         }
 
         /// <summary>
-        /// Set endpoints to the registery.
+        /// Set endpoints to the Windows Registry (current user) or the end point manager service, if any.
         /// </summary>
         /// <param name="endPoints"></param>
         /// <param name="endPointManagerServiceConnection"></param>
-        private static void SetRegisteredEndPoints(Dictionary<string, KeyValuePair<string, HashSet<int>>> endPoints, EndPointManagerServiceConnection endPointManagerServiceConnection) {
+        private static void SetRegisteredEndPoints(Dictionary<string, Dictionary<string, HashSet<int>>> endPoints, EndPointManagerServiceConnection endPointManagerServiceConnection) {
             var sb = new StringBuilder();
             foreach (string handle in endPoints.Keys) {
                 sb.Append(handle);
                 sb.Append('*');
 
-                var kvpConnection = endPoints[handle];
-                sb.Append(kvpConnection.Key);
-                sb.Append('-');
+                var ips = endPoints[handle];
+                foreach (string ip in ips.Keys) {
+                    sb.Append(ip);
+                    sb.Append('-');
 
-                foreach (int port in kvpConnection.Value) {
-                    sb.Append(port);
-                    sb.Append('+');
+                    foreach (int port in ips[ip]) {
+                        sb.Append(port);
+                        sb.Append('+');
+                    }
+
+                    sb.Append(',');
                 }
-
-                sb.Append(',');
+                sb.Append(';');
             }
 
             if (endPointManagerServiceConnection == null)
@@ -198,13 +221,13 @@ namespace SizingServers.IPC {
                 endPointManagerServiceConnection.SendAndReceiveEPM(sb.ToString());
         }
         /// <summary>
-        /// Set endpoints to the registery.
+        /// Set endpoints to the Windows Registry (current user).
         /// </summary>
         /// <param name="endPoints"></param>
         private static void SetRegisteredEndPoints(string endPoints) {
             if (_namedMutex.WaitOne()) {
-                RegistryKey subKey = Registry.CurrentUser.CreateSubKey("Software\\" + EndPointManager.KEY, RegistryKeyPermissionCheck.ReadWriteSubTree, RegistryOptions.Volatile);
-                subKey.SetValue("Endpoints", endPoints, RegistryValueKind.String);
+                RegistryKey subKey = Registry.CurrentUser.CreateSubKey("Software\\" + EndPointManager.WINDOWS_REGISTRY_KEY, RegistryKeyPermissionCheck.ReadWriteSubTree, RegistryOptions.Volatile);
+                subKey.SetValue("EndPoints", endPoints, RegistryValueKind.String);
 
                 _namedMutex.ReleaseMutex();
             }
@@ -221,7 +244,7 @@ namespace SizingServers.IPC {
             return -1;
         }
         /// <summary>
-        /// Only take used tcp ports into accounts. What's been registered in the registry does not matter.
+        /// Only take used tcp ports into accounts. What's been registered in the registry or the epm service does not matter.
         /// </summary>
         /// <returns></returns>
         private static HashSet<int> GetUsedTcpPorts() {
@@ -232,6 +255,5 @@ namespace SizingServers.IPC {
 
             return usedPorts;
         }
-
     }
 }

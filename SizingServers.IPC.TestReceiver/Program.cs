@@ -19,8 +19,8 @@ namespace SizingServers.IPC.TestReceiver {
             //var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT));
             var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT), "password", new byte[] { 0x01, 0x02, 0x03 });
 
-            _receiver = new Receiver("SizingServers.IPC.Test");
-            //_receiver = new Receiver("SizingServers.IPC.Test", epmsCon);
+            //_receiver = new Receiver("SizingServers.IPC.Test");
+            _receiver = new Receiver("SizingServers.IPC.Test", null, epmsCon);
             _receiver.MessageReceived += _receiver_MessageReceived;
 
             Console.WriteLine("Press any key to exit.");

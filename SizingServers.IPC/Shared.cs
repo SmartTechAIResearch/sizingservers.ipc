@@ -7,7 +7,11 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
@@ -205,5 +209,25 @@ namespace SizingServers.IPC {
             return ms.ToArray();
         }
 
+        /// <summary>
+        /// Return the v4 and the v6 IPs of the local machine.
+        /// </summary>
+        public static List<IPAddress> GetIPs() {
+            var ips = new List<IPAddress>();
+            NetworkInterface[] networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+
+            foreach (NetworkInterface network in networkInterfaces) {
+                IPInterfaceProperties properties = network.GetIPProperties();
+
+                foreach (IPAddressInformation address in properties.UnicastAddresses) {
+                    var ipCandidate = address.Address;
+                    if (!ipCandidate.Equals(IPAddress.Loopback) && !ipCandidate.Equals(IPAddress.IPv6Loopback) &&
+                       (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6)) 
+                            ips.Add(ipCandidate);                    
+                }
+            }
+
+            return ips;
+        }
     }
 }

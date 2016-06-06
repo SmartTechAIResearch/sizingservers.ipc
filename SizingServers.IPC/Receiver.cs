@@ -56,23 +56,29 @@ namespace SizingServers.IPC {
         /// <para>Alternatively you can use a ssh tunnel, that will probably be safer and faster</para>
         /// </summary>
         /// <param name="handle">
-        /// <para>The handle is a value shared by a Sender and its Receivers.  , * + and - cannot be used!</para>
+        /// <para>The handle is a value shared by a Sender and its Receivers.  ; , * + and - cannot be used!</para>
         /// <para>It links both parties so messages from a Sender get to the right Receivers.</para>
         /// <para>Make sure this is a unique value: use a GUID for instance:</para>
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
+        /// </param>
+        /// <param name="ipAddressToRegister">
+        /// <para>This parameter is only applicable if you are using a end point manager service.</para>
+        /// <para>A receiver listens to all available IPs for connections. The ip that is registered on the end point manager (service) is by default automatically determined.</para>
+        /// <para>However, this does not take into account that senders, receiver or end point manager services are possibly not on the same network.</para>
+        /// <para>Therefor you can override this behaviour by supplying your own IP that will be registered to the end point manager service.</para>
         /// </param>
         /// <param name="endPointManagerServiceConnection">
         /// <para>This is an optional parameter.</para>
         /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
         /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
         /// </param>
-        public Receiver(string handle, EndPointManagerServiceConnection endPointManagerServiceConnection = null) {
+        public Receiver(string handle, IPAddress ipAddressToRegister = null, EndPointManagerServiceConnection endPointManagerServiceConnection = null) {
             Handle = handle;
             EndPointManagerServiceConnection = endPointManagerServiceConnection;
 
             for (int i = 0; ; i++) //Try 3 times.
                 try {
-                    _tcpReceiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, EndPointManagerServiceConnection));
+                    _tcpReceiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, ipAddressToRegister, EndPointManagerServiceConnection));
                     _tcpReceiver.Start(endPointManagerServiceConnection == null ? 1 : 2); //Keep one connection open to enable the service pinging it.
                     break;
                 }
