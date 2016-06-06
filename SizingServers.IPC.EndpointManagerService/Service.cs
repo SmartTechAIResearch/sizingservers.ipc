@@ -199,13 +199,13 @@ namespace SizingServers.IPC.EndPointManagerService {
         }
 
         private string MessageFromBytes(byte[] messageBytes) {
-            string message = Shared.GetString(messageBytes);
+            string message = Shared.GetString(Shared.Ungzip(messageBytes));
             if (_password != null) message = Shared.Decrypt(message, _password, _salt);
             return message;
         }
         private byte[] MessageToBytes(string message) {
             if (_password != null) message = Shared.Encrypt(message, _password, _salt);
-            return Shared.GetBytes(message);
+            return Shared.Gzip(Shared.GetBytes(message));
         }
 
         /// <summary>

@@ -9,6 +9,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -68,12 +69,28 @@ namespace SizingServers.IPC {
         /// <returns></returns>
         public static byte[] GetBytes(object o, BinaryFormatter bf) {
             byte[] bytes = null;
-            using (var ms = new MemoryStream()) {
+            using (var ms = new MemoryStream(1)) {
                 bf.Serialize(ms, o);
                 bytes = ms.GetBuffer();
             }
             return bytes;
         }
+        /// <summary>
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <param name="compressionLevel"></param>
+        /// <returns></returns>
+        public static byte[] Gzip(byte[] bytes, CompressionLevel compressionLevel = CompressionLevel.Optimal) {
+            byte[] gzipped = null;
+            using (var ms = new MemoryStream(1))
+            using (var dfStream = new GZipStream(ms, compressionLevel)) {
+                dfStream.Write(bytes, 0, bytes.Length);
+                gzipped = ms.GetBuffer();
+            }
+            
+            return gzipped;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -89,11 +106,11 @@ namespace SizingServers.IPC {
             return l;
         }
         /// <summary>
-        /// UTF8
+        /// UTF8. '\0' gets automatically trimmed.
         /// </summary>
         /// <param name="bytes"></param>
         /// <returns></returns>
-        public static string GetString(byte[] bytes) { return Encoding.UTF8.GetString(bytes); }
+        public static string GetString(byte[] bytes) { return Encoding.UTF8.GetString(bytes).Trim('\0'); }
         /// <summary>
         /// 
         /// </summary>
@@ -112,6 +129,28 @@ namespace SizingServers.IPC {
                 o = bf.Deserialize(ms);
             return o;
         }
+        /// <summary>
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns>
+        /// '\0' at the end of the output is possible. Please take this into account.
+        /// </returns>
+        public static byte[] Ungzip(byte[] bytes) {
+            byte[] ungzipped = null;
+            using (var readMs = new MemoryStream(bytes))
+            using (var dfStream = new GZipStream(readMs, CompressionMode.Decompress)) {
+                using (var writeMs = new MemoryStream(1)) {
+                    int read = 0;
+                    byte[] buffer = new byte[256];
+                    while ((read = dfStream.Read(buffer, 0, buffer.Length)) != 0) 
+                        writeMs.Write(buffer, 0, read);
+
+                    ungzipped = writeMs.GetBuffer();
+                }
+            }
+            return ungzipped;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -170,7 +209,7 @@ namespace SizingServers.IPC {
             return Convert.ToBase64String(Encrypt(Encoding.UTF8.GetBytes(toEncrypt), pdb.GetBytes(32), pdb.GetBytes(16)));
         }
         private static byte[] Encrypt(byte[] toEncrypt, byte[] key, byte[] IV) {
-            var ms = new MemoryStream();
+            var ms = new MemoryStream(1);
             var alg = Rijndael.Create();
             alg.Key = key;
             alg.IV = IV;
@@ -193,7 +232,7 @@ namespace SizingServers.IPC {
             return Encoding.UTF8.GetString(Decrypt(Convert.FromBase64String(toDecrypt), pdb.GetBytes(32), pdb.GetBytes(16)));
         }
         private static byte[] Decrypt(byte[] toDecrypt, byte[] Key, byte[] IV) {
-            var ms = new MemoryStream();
+            var ms = new MemoryStream(1);
             var alg = Rijndael.Create();
             alg.Key = Key;
             alg.IV = IV;
@@ -222,8 +261,8 @@ namespace SizingServers.IPC {
                 foreach (IPAddressInformation address in properties.UnicastAddresses) {
                     var ipCandidate = address.Address;
                     if (!ipCandidate.Equals(IPAddress.Loopback) && !ipCandidate.Equals(IPAddress.IPv6Loopback) &&
-                       (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6)) 
-                            ips.Add(ipCandidate);                    
+                       (ipCandidate.AddressFamily == AddressFamily.InterNetwork || ipCandidate.AddressFamily == AddressFamily.InterNetworkV6))
+                        ips.Add(ipCandidate);
                 }
             }
 

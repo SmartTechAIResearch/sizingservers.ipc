@@ -102,13 +102,13 @@ namespace SizingServers.IPC {
             return MessageFromBytes(Shared.ReadBytes(str, client.ReceiveBufferSize, messageSize));
         }
         private string MessageFromBytes(byte[] messageBytes) {
-            string message = Shared.GetString(messageBytes);
+            string message = Shared.GetString(Shared.Ungzip(messageBytes));
             if (Password != null) message = Shared.Decrypt(message, Password, Salt);
             return message;
         }
         private byte[] MessageToBytes(string message) {
             if (Password != null) message = Shared.Encrypt(message, Password, Salt);
-            return Shared.GetBytes(message);
+            return Shared.Gzip(Shared.GetBytes(message));
         }
 
     }
