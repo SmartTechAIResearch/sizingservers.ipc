@@ -9,11 +9,9 @@
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -39,10 +37,15 @@ namespace SizingServers.IPC {
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
         /// <param name="ipAddressToRegister">
-        /// <para>This parameter is only applicable if you are using a end point manager service.</para>
+        /// <para>This parameter is only applicable if you are using an end point manager service.</para>
         /// <para>A receiver listens to all available IPs for connections. The ip that is registered on the end point manager (service) is by default automatically determined.</para>
         /// <para>However, this does not take into account that senders, receiver or end point manager services are possibly not on the same network.</para>
         /// <para>Therefor you can override this behaviour by supplying your own IP that will be registered to the end point manager service.</para>
+        /// </param>
+        /// <param name="allowedPorts">
+        /// <para>This parameter is only useful if you are using an end point manager service.</para>
+        /// <para>To make firewall settings easier, you can specify a pool of TCP ports where the receiver can choose one from to listen on. If none of these ports are available, this will fail.</para>
+        /// <para>If you don't use this parameter, one of the total available ports on the system will be chosen.</para>
         /// </param>
         /// <param name="endPointManagerServiceConnection">
         /// <para>This is an optional parameter.</para>
@@ -50,7 +53,7 @@ namespace SizingServers.IPC {
         /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
         /// </param>
         /// <returns></returns>
-        internal static IPEndPoint RegisterReceiver(string handle, IPAddress ipAddressToRegister, EndPointManagerServiceConnection endPointManagerServiceConnection) {
+        internal static IPEndPoint RegisterReceiver(string handle, IPAddress ipAddressToRegister, int[] allowedPorts, EndPointManagerServiceConnection endPointManagerServiceConnection) {
             if (string.IsNullOrWhiteSpace(handle)) throw new ArgumentNullException(handle);
 
             IPEndPoint endPoint = null;
@@ -70,8 +73,9 @@ namespace SizingServers.IPC {
             if (!endPoints.ContainsKey(handle)) endPoints.Add(handle, new Dictionary<string, HashSet<int>>());
             if (!endPoints[handle].ContainsKey(ip)) endPoints[handle].Add(ip, new HashSet<int>());
 
-            endPoint = new IPEndPoint(ipAddressToRegister, GetAvailableTcpPort());
+            endPoint = new IPEndPoint(ipAddressToRegister, GetAvailableTcpPort(allowedPorts));
             endPoints[handle][ip].Add(endPoint.Port);
+
             SetRegisteredEndPoints(endPoints, endPointManagerServiceConnection);
 
             return endPoint;
@@ -237,10 +241,15 @@ namespace SizingServers.IPC {
         /// 
         /// </summary>
         /// <returns></returns>
-        private static int GetAvailableTcpPort() {
+        private static int GetAvailableTcpPort(int[] allowedPorts) {
             HashSet<int> usedPorts = GetUsedTcpPorts();
-            for (int port = 1; port != int.MaxValue; port++) //0 == random port.
+            if (allowedPorts == null)
+                for (int port = 1; port != int.MaxValue; port++) //0 == random port.
+                    if (!usedPorts.Contains(port)) return port;
+
+            foreach (int port in allowedPorts)
                 if (!usedPorts.Contains(port)) return port;
+
             return -1;
         }
         /// <summary>

@@ -62,23 +62,28 @@ namespace SizingServers.IPC {
         /// <para>There is absolutely no checking to see if this handle is used in another Sender - Receivers relation.</para>
         /// </param>
         /// <param name="ipAddressToRegister">
-        /// <para>This parameter is only applicable if you are using a end point manager service.</para>
+        /// <para>This parameter is only applicable if you are using an end point manager service.</para>
         /// <para>A receiver listens to all available IPs for connections. The ip that is registered on the end point manager (service) is by default automatically determined.</para>
         /// <para>However, this does not take into account that senders, receiver or end point manager services are possibly not on the same network.</para>
         /// <para>Therefor you can override this behaviour by supplying your own IP that will be registered to the end point manager service.</para>
+        /// </param>
+        /// <param name="allowedPorts">
+        /// <para>This parameter is only useful if you are using an end point manager service.</para>
+        /// <para>To make firewall settings easier, you can specify a pool of TCP ports where the receiver can choose one from to listen on. If none of these ports are available, this will fail.</para>
+        /// <para>If you don't use this parameter, one of the total available ports on the system will be chosen.</para>
         /// </param>
         /// <param name="endPointManagerServiceConnection">
         /// <para>This is an optional parameter.</para>
         /// <para>If you don't use it, receiver end points are stored in the Windows registry and IPC communication is only possible for processes running under the current local user.</para>
         /// <para>If you do use it, these end points are fetched from a Windows service over tcp, making it a distributed IPC.This however will be slower and implies a security risk since there will be network traffic.</para>
         /// </param>
-        public Receiver(string handle, IPAddress ipAddressToRegister = null, EndPointManagerServiceConnection endPointManagerServiceConnection = null) {
+        public Receiver(string handle, IPAddress ipAddressToRegister = null, int[] allowedPorts = null, EndPointManagerServiceConnection endPointManagerServiceConnection = null) {
             Handle = handle;
             EndPointManagerServiceConnection = endPointManagerServiceConnection;
 
-            for (int i = 0; ; i++) //Try 3 times.
+            for (int i = 1; i != 21; i++) //Try 20 times, for when the same port is chosen by multiple applications.
                 try {
-                    _tcpReceiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, ipAddressToRegister, EndPointManagerServiceConnection));
+                    _tcpReceiver = new TcpListener(EndPointManager.RegisterReceiver(Handle, ipAddressToRegister, allowedPorts, EndPointManagerServiceConnection));
                     _tcpReceiver.Start(endPointManagerServiceConnection == null ? 1 : 2); //Keep one connection open to enable the service pinging it.
                     break;
                 }
@@ -87,6 +92,7 @@ namespace SizingServers.IPC {
                 }
                 catch (Exception) {
                     //Not important. If it doesn't work the sender does not exist anymore or the sender will handle it.
+                    Thread.Sleep(i * 10);
                 }
 
             _bf = new BinaryFormatter();
