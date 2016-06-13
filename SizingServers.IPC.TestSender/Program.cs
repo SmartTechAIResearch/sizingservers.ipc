@@ -21,8 +21,8 @@ namespace SizingServers.IPC.TestSender {
             //var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT));
             var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT), "password", new byte[] { 0x01, 0x02, 0x03 });
 
-            //_sender = new Sender("SizingServers.IPC.Test");
-            _sender = new Sender("SizingServers.IPC.Test", epmsCon);
+            _sender = new Sender("SizingServers.IPC.Test");
+            //_sender = new Sender("SizingServers.IPC.Test", epmsCon);
             _sender.AfterMessageSent += _sender_AfterMessageSent;
             _sender.OnSendFailed += _sender_OnSendFailed;
 
