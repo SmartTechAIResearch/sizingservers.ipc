@@ -11,7 +11,8 @@ It is written in C# (**.Net 4.6**) but could with a bit of effort be ported to o
 Maybe I will do this myself in the future.
 
 #Installation and examples
-Reference SizingServers.IPC.dll, located in the Build folder, from your Visual Studio Project. The library is well documented.
+All binaries (64 bit) are located in the Build folder.  
+Reference SizingServers.IPC.dll, from your Visual Studio Project. The library is well commented. XML documentation is available.
 
 There you will also find an installer for the end point manager service.  
 You will *not* need this if you want to do IPC for the local user. For system wide IPC or IPC over the network this service needs to be installed somewhere where all IPC senders and receivers can connect to over TCP (more on that later).  
