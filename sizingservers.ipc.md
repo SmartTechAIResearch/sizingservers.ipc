@@ -18,6 +18,7 @@ There you will also find an installer for the end point manager service.
 You will *not* need this if you want to do IPC for the local user. For system wide IPC or IPC over the network this service needs to be installed somewhere where all IPC senders and receivers can connect to over TCP (more on that later).  
 
 In the provided Visual Studio (2015) Solution are two console application projects present: a receiver and a sender example. Uncomment or comment the sections in the program.cs files to test the different functionalities of the library.
+It is possible that your virus scanner will detect a trojan horse. This is a false negative. I don't do malicious stuff. 
 
 In order to succesfully open the solution, your Visual Studio needs to have the Installer project templates: [https://visualstudiogallery.msdn.microsoft.com/f1cc3f3e-c300-40a7-8797-c509fb8933b9](https://visualstudiogallery.msdn.microsoft.com/f1cc3f3e-c300-40a7-8797-c509fb8933b9)
 
@@ -228,4 +229,5 @@ It holds serialization-, gzip-, string encryption (Rijndael)- and stream handeli
 
 #Known issues
 When there is a sender- and a receiver app and a new receiver app is launched it can get the same sent message twice just thereafter.  
-The end point manager service installer  could be better.
+The end point manager service installer  could be better.  
+When opening the Visual Studio solution, it is possible that your virus scanner will detect a trojan horse. This is a false negative. I don't do malicious stuff. 

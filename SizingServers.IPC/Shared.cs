@@ -85,7 +85,7 @@ namespace SizingServers.IPC {
         /// <returns></returns>
         public static byte[] Gzip(byte[] bytes, CompressionLevel compressionLevel = CompressionLevel.Optimal) {
             byte[] gzipped = null;
-            using (var ms = new MemoryStream(1))
+            using (var ms = new MemoryStream())
             using (var dfStream = new GZipStream(ms, compressionLevel)) {
                 dfStream.Write(bytes, 0, bytes.Length);
                 gzipped = ms.GetBuffer();
@@ -142,7 +142,7 @@ namespace SizingServers.IPC {
             byte[] ungzipped = null;
             using (var readMs = new MemoryStream(bytes))
             using (var dfStream = new GZipStream(readMs, CompressionMode.Decompress)) {
-                using (var writeMs = new MemoryStream(1)) {
+                using (var writeMs = new MemoryStream()) {
                     int read = 0;
                     byte[] buffer = new byte[256];
                     while ((read = dfStream.Read(buffer, 0, buffer.Length)) != 0) 

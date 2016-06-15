@@ -21,8 +21,8 @@ namespace SizingServers.IPC.TestSender {
             Console.Title = "SizingServers.Message.TestSender";
             Console.WriteLine("A message is sent every second to all receivers.");
 
-            //var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT));
-            var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT), "password", new byte[] { 0x01, 0x02, 0x03 });
+            var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT));
+            //var epmsCon = new EndPointManagerServiceConnection(new IPEndPoint(IPAddress.Loopback, Shared.EPMS_DEFAULT_TCP_PORT), "password", new byte[] { 0x01, 0x02, 0x03 });
 
             _sender = new Sender("SizingServers.IPC.Test");
             //_sender = new Sender("SizingServers.IPC.Test", epmsCon);
