@@ -120,7 +120,7 @@ Feel free to write a better installer and don't forget to make a pull request.
 The service will listen by default on port 4455. You can give your own port using the service start parameters.  
 You can also let the traffic from the senders and receivers to the service and vice versa be encrypted (Rijndael) via these start parameters.
 
-This encryption needs a passworrd and a salt. The given salt is a string representation of a byte array.
+This encryption needs a password and a salt. The given salt is a string representation of a byte array.
 
 Alternatively, you can channel the traffic through a SSH tunnel. This will probably be safer and faster.
 
@@ -228,5 +228,5 @@ It holds serialization-, gzip-, string encryption (Rijndael)- and stream handeli
 
 ## Known issues
 When there is a sender- and a receiver app and a new receiver app is launched it can get the same sent message twice just thereafter.  
-The end point manager service installer  could be better.  
+The end point manager service installer could be better.  
 When opening the Visual Studio solution, it is possible that your virus scanner will detect a trojan horse. This is a false negative. I don't do malicious stuff. 
