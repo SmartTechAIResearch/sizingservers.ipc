@@ -1,6 +1,6 @@
-#SizingServers.IPC
+# SizingServers.IPC
 
-#Intro
+## Intro
 This library aims to make inter process communication easier.
 
 The main idea behind it is eventing like it is implemented in .Net, but inter process instead of just in the same application. To achieve this it makes use of TCP sockets and does all the otherwise serialization and other boilerplate code + a few extras.
@@ -10,7 +10,7 @@ Locally you could just as easy use named pipes on Windows. However, this IPC imp
 It is written in C# (**.Net 4.6**) but could with a bit of effort be ported to other languages, for instance Java.  
 Maybe I will do this myself in the future.
 
-#Installation and examples
+## Installation and examples
 All binaries (64 bit) are located in the Build folder.  
 Reference SizingServers.IPC.dll, from your Visual Studio Project. The library is well commented. XML documentation is available.
 
@@ -22,7 +22,7 @@ It is possible that your virus scanner will detect a trojan horse. This is a fal
 
 In order to succesfully open the solution, your Visual Studio needs to have the Installer project templates: [https://visualstudiogallery.msdn.microsoft.com/f1cc3f3e-c300-40a7-8797-c509fb8933b9](https://visualstudiogallery.msdn.microsoft.com/f1cc3f3e-c300-40a7-8797-c509fb8933b9)
 
-#Local user IPC
+## Local user IPC
 This is the most simple use case.
 
 To set this up you need one or multiple IPC receivers and one IPC sender.
@@ -102,7 +102,7 @@ From the examples:
       }
     }
 
-#Systemwide IPC and IPC over the network
+## Systemwide IPC and IPC over the network
 To enable this, a Windows Service was written. 
 
 Receivers will register on this end point manager service instead of the Windows Registry.  
@@ -221,13 +221,12 @@ If you want to apply string encryption and gzipping to the messages you send usi
 
 
 
-#Extra
-
+## Extra
 There is a lot of stuff made available in the static class Shared.
 
 It holds serialization-, gzip-, string encryption (Rijndael)- and stream handeling functionality.
 
-#Known issues
+## Known issues
 When there is a sender- and a receiver app and a new receiver app is launched it can get the same sent message twice just thereafter.  
 The end point manager service installer  could be better.  
 When opening the Visual Studio solution, it is possible that your virus scanner will detect a trojan horse. This is a false negative. I don't do malicious stuff. 
